@@ -1,0 +1,103 @@
+name: Golden vectors & host check
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [deepseek, master]
+    paths:
+      - "tools/reference/kp_core.py"
+      - "tools/reference/kp_rules.py"
+      - "tools/reference/kp_daily.py"
+      - "tools/reference/kp_timing.py"
+      - "tools/reference/gen_golden.py"
+      - "tools/reference/rules.json"
+      - "tools/reference/profile.json"
+      - "app/src/main/assets/rules.json"
+      - "app/src/main/java/dev/plawan/kp/engine/**"
+      - "tools/host-check/**"
+      - ".github/workflows/golden.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: golden-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # pyswisseph only ships prebuilt manylinux wheels up to cp311 -> pin 3.11.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install pyswisseph
+        run: python -m pip install --upgrade pip pyswisseph
+
+      - name: Assert rules.json copies are identical
+        run: diff -u app/src/main/assets/rules.json tools/reference/rules.json
+
+      - name: Generate golden.json from the Python reference engine
+        working-directory: tools/reference
+        run: python gen_golden.py > golden.json
+
+      - name: Validate golden.json
+        run: |
+          python - <<'PY'
+          import json
+          g = json.load(open("tools/reference/golden.json"))
+          print("golden.json OK:", "charts", len(g["charts"]), "life", len(g["life"]), "days", len(g["days"]), "sensitive", len(g.get("sensitive", {})))
+          PY
+
+      - name: Commit regenerated golden.json
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            main|master) echo "Protected branch ($GITHUB_REF_NAME): skipping commit-back"; exit 0 ;;
+          esac
+          if git diff --quiet -- tools/reference/golden.json; then
+            echo "golden.json unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/reference/golden.json
+          git commit -m "chore: regenerate golden.json [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: golden-json
+          path: tools/reference/golden.json
+
+  host-check:
+    needs: golden
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: golden-json
+          path: tools/reference
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Kotlin compiler
+        run: |
+          curl -fsSL -o /tmp/kotlin.zip \
+            https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q /tmp/kotlin.zip -d /opt
+          echo "/opt/kotlinc/bin" >> "$GITHUB_PATH"
+
+      - name: Run host-check (Kotlin port vs golden.json)
+        run: sh tools/host-check/run.sh

@@ -1,0 +1,510 @@
+{
+  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference. depends_on lists parent event keys: it is a soft gate, so a child window is only flagged (never dropped) when it falls inside a parent event's window; citation in depends_on_source.",
+  "marriage": {
+    "cusp": 7,
+    "primary": 7,
+    "support": [
+      2,
+      7,
+      11
+    ],
+    "denial": [
+      1,
+      6,
+      10,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 4 ~l.7128-7139 (order of judging: 2,7,11) and l.7160-7168: sub-lord of a significator connected with 2,7,11 is useful; if the sub is lord of 1,6,10 and significator of 12, marriage cannot take place; ruling planets at the moment of judgement must agree."
+  },
+  "childbirth": {
+    "cusp": 5,
+    "primary": 5,
+    "support": [
+      2,
+      5,
+      11
+    ],
+    "denial": [
+      1,
+      4,
+      10
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25783-25789: sub-lord of 5th cusp as significator of 2/5/11 -> child; as significator of 1/4/10 -> never a child; 1,4,10 are the 12th (negation) to 2,5,11. Reader 4 ~l.12824-12853: judge 2,5,11 and the strength of Jupiter; 11th cusp sub-lord for a male child, 5th for a female.",
+    "depends_on": [
+      "marriage"
+    ],
+    "depends_on_source": "Reader 6 ~l.16491-16496: a promised event is experienced only in the dasa-bhukti of its significators; the worked example is child birth not occurring for 10 years after marriage. Reader 4 ~l.12805-12806: the horoscopes of both husband and wife are judged for progeny; l.12827-12829: the 11th house is 'also the 5th house to the 7th partner', linking progeny to the 7th (marriage)."
+  },
+  "job": {
+    "cusp": 10,
+    "primary": 10,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      1,
+      5,
+      9
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.11964-11965: houses 2,6,10 indicate service; the 12th from these (1,5,9) show end of service or retirement. 11 added for gain: Reader 3 ~l.12938 (income/debt cleared through 2,6,10,11)."
+  },
+  "retirement": {
+    "cusp": 9,
+    "primary": 9,
+    "support": [
+      1,
+      5,
+      9
+    ],
+    "denial": [
+      2,
+      6,
+      10
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.11961-11965: houses 2,6,10 indicate service, so the 12th to them i.e. 1,5,9 show end of service or retirement.",
+    "depends_on": [
+      "job"
+    ],
+    "depends_on_source": "KP-E-Zine (Nov 2020-Dec 2021) ~l.125368-125369: 'KP Rule for Retirement: it happens during the joint dasa period of significators of 3, 5, 9 or 12 houses. To be in service are houses 2, 6, 10 or 11.' Retirement is the termination of a service that must first exist (Reader 3 ~l.11961-11965)."
+  },
+  "higher_education": {
+    "cusp": 9,
+    "primary": 4,
+    "support": [
+      4,
+      9,
+      11
+    ],
+    "denial": [
+      3,
+      5,
+      8
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.16004-16028: education is successful if the lord of 4 and the lord of 9 are in the sub of a significator of 11; education ends during the periods of planets connected with 3, 5 or 8. Regular college studies: judge 4 and 11 (l.19158-19160)."
+  },
+  "study_abroad": {
+    "cusp": 9,
+    "primary": 12,
+    "support": [
+      9,
+      11,
+      12
+    ],
+    "denial": [
+      3,
+      5,
+      8
+    ],
+    "status": "partial",
+    "source": "Reader 3 ~l.19020-19030: higher studies = 9th; stay in a foreign country = 12th (for job 6 and 10); scholarship = 6 and 11. Reader 3 ~l.19158-19166: leaving one's native place, hostel abroad, research/thesis -> judge 9 and 12, and to succeed the 11th significator should also signify 9 or 12 or both. Denial group [3,5,8] is inferred from the education-end rule, not stated for overseas study.",
+    "depends_on": [
+      "higher_education"
+    ],
+    "depends_on_source": "Reader 3 ~l.19020-19030: higher studies is indicated by the 9th house; stay in a foreign country by the 12th. Reader 3 ~l.19158-19166: leaving one's native place / hostel abroad / research-thesis -> judge 9 and 12. Overseas study is the foreign (12th) branch of higher study (9th), so higher_education is its parent."
+  },
+  "foreign_travel": {
+    "cusp": 12,
+    "primary": 12,
+    "support": [
+      3,
+      9,
+      12
+    ],
+    "denial": [
+      2,
+      4,
+      8,
+      11
+    ],
+    "status": "verified",
+    "source": "KP-E-Zine (Jul 2009) 'Rules for Foreign Going, Settlement and Return to Motherland' ~l.226664-226682: going abroad = houses 3 (away from home), 9 (long journey) and 12 (foreign stay); return/stay home = 2,8,11 (12th to 3,9,12), and 4 (motherland) may not allow settlement abroad. KP-E-Zine (Jan 2011) ~l.224031-224037: if the 12th cusp sub-lord signifies 3, 9 or 12, foreign travel is promised in the joint period of the significators of 3,9,12. Also Reader 3 ~l.3311: Mercury owning 9 and 12 indicates overseas."
+  },
+  "property_purchase": {
+    "cusp": 4,
+    "primary": 4,
+    "support": [
+      4,
+      11,
+      12
+    ],
+    "denial": [
+      3,
+      5,
+      10
+    ],
+    "alt_support": [
+      2,
+      4,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.14533-14551: purchase -> judge 4 (land/building), 11 (gain/acquisition) and 12 (payment, the cheque issued). Reader 3 ~l.14651-14654: the later research (after 1967) states acquisition = 2,4,11; disposal = 3,5,10. Both variants are in the book; support here is the chapter form 4,11,12 with 2,4,11 kept as alt_support."
+  },
+  "property_sale": {
+    "cusp": 4,
+    "primary": 3,
+    "support": [
+      3,
+      5,
+      10
+    ],
+    "denial": [
+      2,
+      4,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.14643-14654: disposal of a house is judged from the 3rd, 5th and 10th bhavas; acquisition (2,4,11) is the opposite group. 3rd is vyaya (loss) to the 4th (permanent possession).",
+    "depends_on": [
+      "property_purchase"
+    ],
+    "depends_on_source": "Reader 3 ~l.14651-14654: 'Acquisition of a house: Judge the second, fourth and eleventh bhavas. Disposal of a house: 3rd, 5th and 10th bhavas.' Disposal presupposes an earlier acquisition; the two are the opposite house groups."
+  },
+  "engagement": {
+    "cusp": 7,
+    "primary": 7,
+    "support": [
+      2,
+      3,
+      7,
+      9,
+      11
+    ],
+    "denial": [
+      1,
+      6,
+      10,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25463-25470: 2,7,11 give marriage; if also 3 (own agreement) and 9 (other party's consent) the marriage is engaged. Denial from R4 ~l.7160."
+  },
+  "separation": {
+    "cusp": 7,
+    "primary": 6,
+    "support": [
+      1,
+      6,
+      10,
+      12
+    ],
+    "denial": [
+      2,
+      7,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 4 ~l.8972-8985: separation from partner judged from 1,6,10,12; ~l.4205-4212: if the same planet also signifies 2,7,11 the quarrel is brief and they reunite."
+  },
+  "divorce": {
+    "cusp": 7,
+    "primary": 6,
+    "support": [
+      1,
+      6,
+      10
+    ],
+    "denial": [
+      2,
+      7,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 4 ~l.9477: divorce is seen from houses 1, 6 and 10 (6 is 12th from 7); Mars/Jupiter-in-Mars-star adds litigation (~l.9480-9490)."
+  },
+  "second_marriage": {
+    "cusp": 2,
+    "primary": 7,
+    "support": [
+      2,
+      7
+    ],
+    "denial": [
+      1,
+      6,
+      10,
+      12
+    ],
+    "status": "partial",
+    "source": "Reader 4 ~l.9010-9015, 5108: 2nd cusp is second marriage; sub-lord connected with 7 -> second marriage, with 11 -> only a live-in attachment. Plurality: 7th cusp sub-lord in a dual sign (~l.8905). Denial group borrowed from marriage."
+  },
+  "partnership_new": {
+    "cusp": 7,
+    "primary": 7,
+    "support": [
+      2,
+      7,
+      10,
+      11
+    ],
+    "denial": [
+      6,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25622-25630: new partner when significator of 7 also signifies 11, and 11 connects with 2 or 10."
+  },
+  "partnership_end": {
+    "cusp": 7,
+    "primary": 6,
+    "support": [
+      6,
+      12
+    ],
+    "denial": [
+      7,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25604-25621: significator of 7 also of 6 -> partner leaves; also of 12 -> you sever the connection."
+  },
+  "first_salary": {
+    "cusp": 2,
+    "primary": 2,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      1,
+      5,
+      9
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.22345-22420: 2 receipt of money, 6 dues from service, 10 profession, 11 gain; 12th from these (1,5,9) end of income."
+  },
+  "reinstatement": {
+    "cusp": 10,
+    "primary": 10,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      5,
+      9,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.22569-22640: judge 2,6,10,11; suspension is shown by 5,9,12 (l.22517)."
+  },
+  "suspension": {
+    "cusp": 12,
+    "primary": 12,
+    "support": [
+      5,
+      9,
+      12
+    ],
+    "denial": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.22517 and l.25510-25518: 5,9 with 12 -> suspension; 10 with 12 -> inquiry/exposure."
+  },
+  "termination_of_service": {
+    "cusp": 12,
+    "primary": 12,
+    "support": [
+      1,
+      5,
+      9,
+      12
+    ],
+    "denial": [
+      2,
+      6,
+      10
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.23140-23145: termination judged from 1,5,9 and 12 (1 negates 2)."
+  },
+  "transfer": {
+    "cusp": 9,
+    "primary": 12,
+    "support": [
+      3,
+      9,
+      12
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.22861-22870: for transfer consider 3, 9 and 12 (for a spouse count them from the 7th)."
+  },
+  "deputation_with_gain": {
+    "cusp": 9,
+    "primary": 11,
+    "support": [
+      5,
+      9,
+      11,
+      12
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.25471-25478: houses 5, 9, 11 judged; the 11th significator should also signify 12 (service in a new place)."
+  },
+  "selection_for_post": {
+    "cusp": 11,
+    "primary": 11,
+    "support": [
+      3,
+      11
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.25479-25490: news of selection when significator of 11 also signifies 3; actual promotion in the combined period of 2/6/10 and 11."
+  },
+  "loan_borrowing": {
+    "cusp": 6,
+    "primary": 6,
+    "support": [
+      2,
+      6
+    ],
+    "denial": [
+      8,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.13157-13160, 9063: conjoined period of significators of 2 and 6 -> borrowing; sub of 8 or 12 -> repaying or lending."
+  },
+  "loan_repayment": {
+    "cusp": 12,
+    "primary": 12,
+    "support": [
+      8,
+      12
+    ],
+    "denial": [
+      2,
+      6
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25730-25738: significators of 8 and 12 show repayment or lending; discharge of a loan is judged from 12 (l.13175)."
+  },
+  "windfall_gain": {
+    "cusp": 8,
+    "primary": 8,
+    "support": [
+      6,
+      8,
+      11
+    ],
+    "denial": [
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25735-25738: significator of 8 also of 6 and 11 -> money received; of 8 and 12 -> you pay out."
+  },
+  "speculation_gain": {
+    "cusp": 5,
+    "primary": 5,
+    "support": [
+      5,
+      6,
+      11
+    ],
+    "denial": [
+      8,
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25776-25781: 5 gives the opportunity, with 6 and 11 you gain, with 8 and 12 you lose."
+  },
+  "imprisonment": {
+    "cusp": 12,
+    "primary": 12,
+    "support": [
+      3,
+      8,
+      12
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.25740-25750 and l.24615-24640: 3, 8, 12 for imprisonment; confinement in one's own house 4, 8, 12."
+  },
+  "accident_on_journey": {
+    "cusp": 3,
+    "primary": 3,
+    "support": [
+      3,
+      6,
+      8,
+      9
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.25632-25640: significator of 3 (short) or 9 (long journey) that also signifies 6 and 8 -> accident; also 12 -> hospitalisation."
+  },
+  "phd_thesis": {
+    "cusp": 9,
+    "primary": 9,
+    "support": [
+      4,
+      9,
+      11
+    ],
+    "denial": [
+      12
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25752-25760: thesis in combined period of 4 and 9; 9 also signifying 11 -> doctorate; 9 with 12 -> failure."
+  },
+  "vehicle_purchase": {
+    "cusp": 4,
+    "primary": 4,
+    "support": [
+      4,
+      9,
+      10,
+      11
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "Reader 3 ~l.14946: conveyance is the 4th house; 4, 9, 10 and 11 are examined."
+  },
+  "tenant_arrival": {
+    "cusp": 6,
+    "primary": 6,
+    "support": [
+      4,
+      6,
+      9
+    ],
+    "denial": [
+      8
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25653-25660: tenant is the 6th; significators of 6, 9 and 4 (4th from 6 = 9th) together bring a tenant; 8th (3rd from 6) takes him away."
+  },
+  "tenant_vacate": {
+    "cusp": 6,
+    "primary": 8,
+    "support": [
+      6,
+      8
+    ],
+    "denial": [
+      4,
+      9
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.25641-25652: tenant leaves in the combined period of significators of 6 and 8."
+  }
+}

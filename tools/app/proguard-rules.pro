@@ -1,0 +1,1 @@
+-keep class dev.plawan.kp.engine.SweNative { *; }

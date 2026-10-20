@@ -1,0 +1,5 @@
+{
+  "name": "Plawan",
+  "birth":   {"datetime": "2000-11-21T18:12:00", "tz": "Asia/Kolkata", "lat": 26.4446, "lon": 91.4373},
+  "current": {"tz": "Asia/Kolkata", "lat": 26.4446, "lon": 91.4373}
+}

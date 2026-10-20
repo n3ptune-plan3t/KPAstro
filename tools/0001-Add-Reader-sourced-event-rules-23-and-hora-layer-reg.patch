@@ -1,0 +1,1384 @@
+From 8cb46ef41c8e269707fce995478d201441b2915e Mon Sep 17 00:00:00 2001
+From: claude <noreply@anthropic.com>
+Date: Fri, 16 Oct 2026 21:45:29 +0000
+Subject: [PATCH] Add Reader-sourced event rules (23) and hora layer;
+ regenerate golden vectors
+
+---
+ .gitignore                                    |   1 +
+ README.md                                     |   5 +
+ app/src/main/assets/rules.json                | 471 +++++++++++++++++-
+ .../main/java/dev/plawan/kp/KpViewModel.kt    |   5 +-
+ .../main/java/dev/plawan/kp/engine/KpHora.kt  |  76 +++
+ .../java/dev/plawan/kp/engine/SweNative.kt    |   7 +-
+ .../main/java/dev/plawan/kp/ui/TodayScreen.kt |  24 +
+ tools/host-check/GoldenCheck.kt               |   6 +
+ tools/reference/gen_golden.py                 |   9 +-
+ tools/reference/golden.json                   |   2 +-
+ tools/reference/kp_hora.py                    |  79 +++
+ tools/reference/rules.json                    | 471 +++++++++++++++++-
+ 12 files changed, 1123 insertions(+), 33 deletions(-)
+ create mode 100644 app/src/main/java/dev/plawan/kp/engine/KpHora.kt
+ create mode 100644 tools/reference/kp_hora.py
+
+diff --git a/.gitignore b/.gitignore
+index a4a956b..276b3ff 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,3 +3,4 @@ build/
+ local.properties
+ .idea/
+ *.iml
++__pycache__/
+diff --git a/README.md b/README.md
+index cc62388..7ca852f 100644
+--- a/README.md
++++ b/README.md
+@@ -21,6 +21,11 @@ Swiss Ephemeris (Moshier, KP ayanamsa) is built from the vendored C sources via
+ with `tools/reference/golden.json`, which `gen_golden.py` produces from the Python engine (`pip install pyswisseph`).
+ Needs a JDK with headers (`openjdk-*-jdk-headless`) and `kotlinc` on PATH.
+ 
++## Added from the Readers (Reader 3/4 Q&A chapters)
++- `rules.json` now holds 32 events (23 new, each with a line reference): engagement, separation, divorce, second marriage, partnership start/end, first salary, reinstatement, suspension, termination of service, transfer, deputation with gain, selection for a post, loan borrowing/repayment, windfall, speculation, imprisonment, accident on journey, PhD thesis, vehicle purchase, tenant arrival/vacate. Childbirth is now verified (denial 1-4-10, Reader 3 ~l.25788).
++- `engine/KpHora.kt` (+ `tools/reference/kp_hora.py`): planetary hours from Reader 3 ~l.30440-30580, sub-horas, the Dasha/Bhukti pair rule and the muhurta pairs; shown on the Today screen. Afternoon/night continuation is an assumption.
++- Not added on purpose: Parashari gochar/ashtakavarga/dasha-lord-in-house rules (Reader 3 ~l.26929-27440, ~l.29109); Reader 5 rejects traditional transit rules.
++
+ ## Known deviations from the Python reference
+ - Adjacent dasha windows are merged when they touch within 1 s (Python required exact datetime equality).
+ - `transit_score`, `rank_days`, `day_outlook` are not ported (the handoff marks them superseded).
+diff --git a/app/src/main/assets/rules.json b/app/src/main/assets/rules.json
+index ff9dd1b..48a5aed 100644
+--- a/app/src/main/assets/rules.json
++++ b/app/src/main/assets/rules.json
+@@ -1,49 +1,492 @@
+ {
+-  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference.",
++  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference. Added from Readers 3/4 Q&A chapters (see per-event source).",
+   "marriage": {
+-    "cusp": 7, "primary": 7, "support": [2, 7, 11], "denial": [1, 6, 10, 12],
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      7,
++      11
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
+     "status": "verified",
+     "source": "Reader 4 ~l.7160-7168: sub-lord connected with 2,7,11 useful; sub of 1,6,10 and signifier of 12 -> marriage cannot take place; ruling planets at moment of judgement must agree"
+   },
+   "childbirth": {
+-    "cusp": 5, "primary": 5, "support": [2, 5, 11], "denial": [1, 4, 10],
+-    "status": "partial",
+-    "source": "Reader 4 ~l.13229: examine 2,5,11 and strength of Jupiter. l.12850: 11th sub-lord for male child, 5th for female. Denial group 1,4,10 not yet found in text."
++    "cusp": 5,
++    "primary": 5,
++    "support": [
++      2,
++      5,
++      11
++    ],
++    "denial": [
++      1,
++      4,
++      10
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25783-25790: sub-lord of 5th cusp signifying 2, 5 or 11 -> child; signifying 1, 4 or 10 -> never a child (1,4,10 are 12th from 2,5,11). Reader 4 ~l.12836: 5, 11 or Jupiter; l.12850: 11th sub-lord male child, 5th female."
+   },
+   "job": {
+-    "cusp": 10, "primary": 10, "support": [2, 6, 10, 11], "denial": [1, 5, 9],
++    "cusp": 10,
++    "primary": 10,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      1,
++      5,
++      9
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.11964: houses 2,6,10 indicate service; 12th from these (1,5,9) end of service. 11 added for gain (l.11157, l.12938)."
+   },
+   "retirement": {
+-    "cusp": 9, "primary": 9, "support": [1, 5, 9], "denial": [2, 6, 10],
++    "cusp": 9,
++    "primary": 9,
++    "support": [
++      1,
++      5,
++      9
++    ],
++    "denial": [
++      2,
++      6,
++      10
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.11964: 1,5,9 show end of service or retirement."
+   },
+   "higher_education": {
+-    "cusp": 9, "primary": 4, "support": [4, 9, 11], "denial": [3, 5, 8],
++    "cusp": 9,
++    "primary": 4,
++    "support": [
++      4,
++      9,
++      11
++    ],
++    "denial": [
++      3,
++      5,
++      8
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.16004-16012: education successful if lords of 4 and 9 are in sub of significator of 11; education ends in periods connected with 3, 5 or 8. Regular college: judge 4 and 11 (l.19160)."
+   },
+   "study_abroad": {
+-    "cusp": 9, "primary": 12, "support": [9, 11, 12], "denial": [3, 5, 8],
++    "cusp": 9,
++    "primary": 12,
++    "support": [
++      9,
++      11,
++      12
++    ],
++    "denial": [
++      3,
++      5,
++      8
++    ],
+     "status": "partial",
+     "source": "Reader 3 ~l.19160-19170: research / hostel / leaving native place: judge 9 and 12; 11th significator should also signify 9 or 12 or both. l.19020: stay abroad judged from 12th, for job 6 and 10. Denial group assumed from education rule."
+   },
+   "foreign_travel": {
+-    "cusp": 12, "primary": 12, "support": [9, 12], "denial": [2, 4, 11],
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      4,
++      11
++    ],
+     "status": "partial",
+     "source": "Reader 3 ~l.3311, 3594: 9 and 12 indicate overseas; stay in foreign country from 12th. Denial 2,4,11 (stay-at-home houses) is common teaching, not found yet."
+   },
+   "property_purchase": {
+-    "cusp": 4, "primary": 4, "support": [4, 11, 12], "denial": [3, 5, 10],
+-    "alt_support": [2, 4, 11],
++    "cusp": 4,
++    "primary": 4,
++    "support": [
++      4,
++      11,
++      12
++    ],
++    "denial": [
++      3,
++      5,
++      10
++    ],
++    "alt_support": [
++      2,
++      4,
++      11
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.14535-14548: purchase = 4 (building), 11 (gain), 12 (payment). l.14643-14650: acquisition 2,4,11; disposal 3,5,10. Two variants in the book, 2,4,11 is the later research (after 1967)."
+   },
+   "property_sale": {
+-    "cusp": 4, "primary": 3, "support": [3, 5, 10], "denial": [2, 4, 11],
++    "cusp": 4,
++    "primary": 3,
++    "support": [
++      3,
++      5,
++      10
++    ],
++    "denial": [
++      2,
++      4,
++      11
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.14643-14650: disposal of a house is judged from 3, 5, 10; acquisition 2,4,11 is the opposite group."
++  },
++  "engagement": {
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      3,
++      7,
++      9,
++      11
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25463-25470: 2,7,11 give marriage; if also 3 (own agreement) and 9 (other party's consent) the marriage is engaged. Denial from R4 ~l.7160."
++  },
++  "separation": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "denial": [
++      2,
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 4 ~l.8972-8985: separation from partner judged from 1,6,10,12; ~l.4205-4212: if the same planet also signifies 2,7,11 the quarrel is brief and they reunite."
++  },
++  "divorce": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      1,
++      6,
++      10
++    ],
++    "denial": [
++      2,
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 4 ~l.9477: divorce is seen from houses 1, 6 and 10 (6 is 12th from 7); Mars/Jupiter-in-Mars-star adds litigation (~l.9480-9490)."
++  },
++  "second_marriage": {
++    "cusp": 2,
++    "primary": 7,
++    "support": [
++      2,
++      7
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "status": "partial",
++    "source": "Reader 4 ~l.9010-9015, 5108: 2nd cusp is second marriage; sub-lord connected with 7 -> second marriage, with 11 -> only a live-in attachment. Plurality: 7th cusp sub-lord in a dual sign (~l.8905). Denial group borrowed from marriage."
++  },
++  "partnership_new": {
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      7,
++      10,
++      11
++    ],
++    "denial": [
++      6,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25622-25630: new partner when significator of 7 also signifies 11, and 11 connects with 2 or 10."
++  },
++  "partnership_end": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      6,
++      12
++    ],
++    "denial": [
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25604-25621: significator of 7 also of 6 -> partner leaves; also of 12 -> you sever the connection."
++  },
++  "first_salary": {
++    "cusp": 2,
++    "primary": 2,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      1,
++      5,
++      9
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22345-22420: 2 receipt of money, 6 dues from service, 10 profession, 11 gain; 12th from these (1,5,9) end of income."
++  },
++  "reinstatement": {
++    "cusp": 10,
++    "primary": 10,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      5,
++      9,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22569-22640: judge 2,6,10,11; suspension is shown by 5,9,12 (l.22517)."
++  },
++  "suspension": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      5,
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22517 and l.25510-25518: 5,9 with 12 -> suspension; 10 with 12 -> inquiry/exposure."
++  },
++  "termination_of_service": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      1,
++      5,
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      6,
++      10
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.23140-23145: termination judged from 1,5,9 and 12 (1 negates 2)."
++  },
++  "transfer": {
++    "cusp": 9,
++    "primary": 12,
++    "support": [
++      3,
++      9,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.22861-22870: for transfer consider 3, 9 and 12 (for a spouse count them from the 7th)."
++  },
++  "deputation_with_gain": {
++    "cusp": 9,
++    "primary": 11,
++    "support": [
++      5,
++      9,
++      11,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25471-25478: houses 5, 9, 11 judged; the 11th significator should also signify 12 (service in a new place)."
++  },
++  "selection_for_post": {
++    "cusp": 11,
++    "primary": 11,
++    "support": [
++      3,
++      11
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25479-25490: news of selection when significator of 11 also signifies 3; actual promotion in the combined period of 2/6/10 and 11."
++  },
++  "loan_borrowing": {
++    "cusp": 6,
++    "primary": 6,
++    "support": [
++      2,
++      6
++    ],
++    "denial": [
++      8,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.13157-13160, 9063: conjoined period of significators of 2 and 6 -> borrowing; sub of 8 or 12 -> repaying or lending."
++  },
++  "loan_repayment": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      8,
++      12
++    ],
++    "denial": [
++      2,
++      6
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25730-25738: significators of 8 and 12 show repayment or lending; discharge of a loan is judged from 12 (l.13175)."
++  },
++  "windfall_gain": {
++    "cusp": 8,
++    "primary": 8,
++    "support": [
++      6,
++      8,
++      11
++    ],
++    "denial": [
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25735-25738: significator of 8 also of 6 and 11 -> money received; of 8 and 12 -> you pay out."
++  },
++  "speculation_gain": {
++    "cusp": 5,
++    "primary": 5,
++    "support": [
++      5,
++      6,
++      11
++    ],
++    "denial": [
++      8,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25776-25781: 5 gives the opportunity, with 6 and 11 you gain, with 8 and 12 you lose."
++  },
++  "imprisonment": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      3,
++      8,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25740-25750 and l.24615-24640: 3, 8, 12 for imprisonment; confinement in one's own house 4, 8, 12."
++  },
++  "accident_on_journey": {
++    "cusp": 3,
++    "primary": 3,
++    "support": [
++      3,
++      6,
++      8,
++      9
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25632-25640: significator of 3 (short) or 9 (long journey) that also signifies 6 and 8 -> accident; also 12 -> hospitalisation."
++  },
++  "phd_thesis": {
++    "cusp": 9,
++    "primary": 9,
++    "support": [
++      4,
++      9,
++      11
++    ],
++    "denial": [
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25752-25760: thesis in combined period of 4 and 9; 9 also signifying 11 -> doctorate; 9 with 12 -> failure."
++  },
++  "vehicle_purchase": {
++    "cusp": 4,
++    "primary": 4,
++    "support": [
++      4,
++      9,
++      10,
++      11
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.14946: conveyance is the 4th house; 4, 9, 10 and 11 are examined."
++  },
++  "tenant_arrival": {
++    "cusp": 6,
++    "primary": 6,
++    "support": [
++      4,
++      6,
++      9
++    ],
++    "denial": [
++      8
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25653-25660: tenant is the 6th; significators of 6, 9 and 4 (4th from 6 = 9th) together bring a tenant; 8th (3rd from 6) takes him away."
++  },
++  "tenant_vacate": {
++    "cusp": 6,
++    "primary": 8,
++    "support": [
++      6,
++      8
++    ],
++    "denial": [
++      4,
++      9
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25641-25652: tenant leaves in the combined period of significators of 6 and 8."
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/app/src/main/java/dev/plawan/kp/KpViewModel.kt b/app/src/main/java/dev/plawan/kp/KpViewModel.kt
+index f83e69c..73fafe1 100644
+--- a/app/src/main/java/dev/plawan/kp/KpViewModel.kt
++++ b/app/src/main/java/dev/plawan/kp/KpViewModel.kt
+@@ -23,6 +23,7 @@ class KpViewModel(app: Application) : AndroidViewModel(app) {
+     val context = MutableStateFlow<Context?>(null)
+     val date = MutableStateFlow(LocalDate.now())
+     val report = MutableStateFlow<DayReport?>(null)
++    val hora = MutableStateFlow<HoraReport?>(null)
+     val loadingDay = MutableStateFlow(false)
+     val life = MutableStateFlow<List<EventReport>?>(null)
+     val tolerance = MutableStateFlow<Map<String, Tolerance>?>(null)
+@@ -45,8 +46,8 @@ class KpViewModel(app: Application) : AndroidViewModel(app) {
+         val ctx = context.value ?: return@launch
+         val d = date.value
+         loadingDay.value = true
+-        runCatching { withContext(Dispatchers.Default) { mutex.withLock { dayReport(ctx, d.atTime(12, 0).atZone(ctx.zone)) } } }
+-            .onSuccess { if (d == date.value) report.value = it }.onFailure { error.value = it.message ?: it.toString() }
++        runCatching { withContext(Dispatchers.Default) { mutex.withLock { val at = d.atTime(12, 0).atZone(ctx.zone); dayReport(ctx, at) to horaReport(ctx, at) } } }
++            .onSuccess { if (d == date.value) { report.value = it.first; hora.value = it.second } }.onFailure { error.value = it.message ?: it.toString() }
+         loadingDay.value = false
+     }
+ 
+diff --git a/app/src/main/java/dev/plawan/kp/engine/KpHora.kt b/app/src/main/java/dev/plawan/kp/engine/KpHora.kt
+new file mode 100644
+index 0000000..2d2a020
+--- /dev/null
++++ b/app/src/main/java/dev/plawan/kp/engine/KpHora.kt
+@@ -0,0 +1,76 @@
++package dev.plawan.kp.engine
++
++import java.time.Duration
++import java.time.Instant
++import java.time.ZonedDateTime
++import java.time.temporal.ChronoUnit
++
++// Planetary hours (hora) - Reader 3 "Predictive Stellar Astrology" ~l.30440-30580 (Hora / Muhurtha chapter).
++//  * Sunrise to local noon is divided into 6 equal parts; the first belongs to the lord of the day (l.30447-30450, 30480-30495).
++//  * Order of hora lords: day lord, then Moon follows Mercury, Saturn follows Moon ... i.e. the Chaldean order
++//    Sun, Venus, Mercury, Moon, Saturn, Jupiter, Mars (Wednesday example: Mercury, Moon, Saturn, l.30488-30495).
++//  * Each hora is split into 7 equal sub-horas starting with the hora lord and following the same order (l.30519-30525).
++//  * Combination rule: Dasha lord / Bhukti lord pair is served by "Mars hora + Jupiter sub, Jupiter hora + Mars sub,
++//    Mars day + Jupiter hora, Jupiter day + Mars hora" (l.30558-30566).
++// ASSUMPTION (flagged): the book only worked the forenoon; the afternoon and night are taken as the same 12+12 cycle
++// (day = 2 x sunrise-to-noon, night = remainder to next sunrise, each split in 12), continuing the 7-planet order.
++
++val HORA_ORDER = listOf("Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars")
++
++data class Hora(val start: Instant, val end: Instant, val lord: String, val night: Boolean)
++data class HoraSub(val start: Instant, val end: Instant, val lord: String)
++data class HoraPin(val start: Instant, val end: Instant, val hora: String, val sub: String?, val kind: String)
++
++/** Muhurta pairs named in Reader 3 (~l.30517 avoid, ~l.30568-30572 prefer). Pair = {day or hora lord, hora or sub lord}. */
++val MUHURTA_PAIRS = linkedMapOf(
++    "Marriage (Venus + Jupiter)" to ("Venus" to "Jupiter"),
++    "Construction (Mercury + Mars)" to ("Mercury" to "Mars"),
++    "Avoid signing / negotiating (Saturn + Mercury)" to ("Saturn" to "Mercury"),
++)
++
++fun horaLordAfter(lord: String, steps: Int) = HORA_ORDER[(HORA_ORDER.indexOf(lord) + steps) % 7]
++
++/** The 24 horas that start at the sunrise of the local calendar day `d0` (local midnight). */
++fun horaDay(d0: ZonedDateTime, lat: Double, lon: Double): List<Hora> {
++    val rise = sunriseUtc(d0, lat, lon)
++    val nextRise = sunriseUtc(d0.plusDays(1), lat, lon)
++    val (rc, tjd) = Swe.transit(Swe.jd(rise.truncatedTo(ChronoUnit.MINUTES)), lat, lon)
++    val noon = if (rc < 0) rise.plusSeconds(6 * 3600) else Swe.instant(tjd)
++    val dayLen = Duration.between(rise, noon).toMillis() * 2
++    val set = rise.plusMillis(dayLen)
++    val dayH = dayLen / 12; val nightH = Duration.between(set, nextRise).toMillis() / 12
++    val dayLord = WEEKDAY_LORD[d0.dayOfWeek.value - 1]
++    return (0 until 24).map { i ->
++        val night = i >= 12
++        val s = if (!night) rise.plusMillis(dayH * i) else set.plusMillis(nightH * (i - 12))
++        val e = if (!night) rise.plusMillis(dayH * (i + 1)) else if (i == 23) nextRise else set.plusMillis(nightH * (i - 11))
++        Hora(s, e, horaLordAfter(dayLord, i), night)
++    }
++}
++
++fun horaSubs(h: Hora): List<HoraSub> {
++    val len = Duration.between(h.start, h.end).toMillis() / 7
++    return (0 until 7).map { j -> HoraSub(h.start.plusMillis(len * j), if (j == 6) h.end else h.start.plusMillis(len * (j + 1)), horaLordAfter(h.lord, j)) }
++}
++
++/** Windows where the pair {a,b} is served: hora lord + sub-hora lord, or day lord + hora lord (Reader 3 ~l.30558-30566). */
++fun horaPairWindows(horas: List<Hora>, dayLord: String, a: String, b: String): List<HoraPin> {
++    val want = setOf(a, b); val out = ArrayList<HoraPin>()
++    for (h in horas) {
++        if (h.lord != dayLord && setOf(dayLord, h.lord) == want) out.add(HoraPin(h.start, h.end, h.lord, null, "day+hora"))
++        else if (h.lord == dayLord && a == b && a == h.lord) out.add(HoraPin(h.start, h.end, h.lord, null, "day+hora"))
++        for (s in horaSubs(h)) if (s.lord != h.lord && setOf(h.lord, s.lord) == want) out.add(HoraPin(s.start, s.end, h.lord, s.lord, "hora+sub"))
++    }
++    return out.sortedBy { it.start }
++}
++
++data class HoraReport(val dayLord: String, val horas: List<Hora>, val dashaPair: Pair<String, String>, val dashaPins: List<HoraPin>, val muhurta: Map<String, List<HoraPin>>)
++
++fun horaReport(ctx: Context, day: ZonedDateTime): HoraReport {
++    val d0 = day.withZoneSameInstant(ctx.zone).truncatedTo(ChronoUnit.DAYS)
++    val horas = horaDay(d0, ctx.lat, ctx.lon); val dayLord = WEEKDAY_LORD[d0.dayOfWeek.value - 1]
++    val chain = chainAt(ctx.mds, d0.toInstant().plusSeconds(12 * 3600), 2)!!
++    val pair = chain[0] to chain[1]
++    return HoraReport(dayLord, horas, pair, horaPairWindows(horas, dayLord, pair.first, pair.second),
++        MUHURTA_PAIRS.mapValues { (_, p) -> horaPairWindows(horas, dayLord, p.first, p.second) })
++}
+diff --git a/app/src/main/java/dev/plawan/kp/engine/SweNative.kt b/app/src/main/java/dev/plawan/kp/engine/SweNative.kt
+index 30b9ae2..dc8c122 100644
+--- a/app/src/main/java/dev/plawan/kp/engine/SweNative.kt
++++ b/app/src/main/java/dev/plawan/kp/engine/SweNative.kt
+@@ -16,7 +16,7 @@ object Swe {
+     const val SUN = 0; const val MOON = 1; const val MERCURY = 2; const val VENUS = 3
+     const val MARS = 4; const val JUPITER = 5; const val SATURN = 6; const val MEAN_NODE = 10
+     private const val FLG_MOSEPH = 4; private const val FLG_SPEED = 256; private const val FLG_SIDEREAL = 65536
+-    private const val CALC_RISE = 1; private const val HINDU_RISING = 896   // disc centre, no refraction
++    private const val CALC_RISE = 1; private const val CALC_MTRANSIT = 4; private const val HINDU_RISING = 896   // disc centre, no refraction
+     private val lock = Any()
+     @Volatile private var ready = false
+ 
+@@ -41,4 +41,9 @@ object Swe {
+         ensure(); val r = synchronized(lock) { SweNative.riseSun(jd, lon, lat, CALC_RISE or HINDU_RISING) }
+         return r[0].toInt() to r[1]
+     }
++    /** Returns (returnCode, jd) of the first upper meridian transit of the Sun after `jd` (local noon). */
++    fun transit(jd: Double, lat: Double, lon: Double): Pair<Int, Double> {
++        ensure(); val r = synchronized(lock) { SweNative.riseSun(jd, lon, lat, CALC_MTRANSIT) }
++        return r[0].toInt() to r[1]
++    }
+ }
+diff --git a/app/src/main/java/dev/plawan/kp/ui/TodayScreen.kt b/app/src/main/java/dev/plawan/kp/ui/TodayScreen.kt
+index 3e6265e..ab98bb9 100644
+--- a/app/src/main/java/dev/plawan/kp/ui/TodayScreen.kt
++++ b/app/src/main/java/dev/plawan/kp/ui/TodayScreen.kt
+@@ -31,6 +31,7 @@ fun TodayScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
+     val loading by vm.loadingDay.collectAsStateWithLifecycle()
+     val err by vm.error.collectAsStateWithLifecycle()
+     val date by vm.date.collectAsStateWithLifecycle()
++    val hr by vm.hora.collectAsStateWithLifecycle()
+     val r = rep
+     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+         item { DateBar(date, onPrev = { vm.shiftDay(-1) }, onNext = { vm.shiftDay(1) }, onToday = { vm.today() }) }
+@@ -44,6 +45,7 @@ fun TodayScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
+         item { SectionTitle("Life areas") }
+         items(r.areas.sortedByDescending { it.score }, key = { it.key }) { AreaCard(it, r) }
+         item { LuckyCard(r) }
++        hr?.let { h -> item { HoraCard(h, r.zone) } }
+         item { TransitsCard(r) }
+         item { Text(DISCLAIMER, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
+     }
+@@ -147,3 +149,25 @@ private fun TransitsCard(r: DayReport) = KpCard {
+         r.transits.forEach { (n, t) -> Pill("$n ${t.star.take(3)}/${t.sub.take(3)}", MaterialTheme.colorScheme.secondary) }
+     }
+ }
++
++@Composable
++private fun HoraCard(h: HoraReport, z: java.time.ZoneId) = KpCard {
++    SectionTitle("Planetary hours (hora)")
++    Text("Reader 3 ~l.30440-30580: sunrise to noon is split in six, each hora in seven sub-horas. Afternoon and night continue the same cycle (assumption).",
++        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++    val now = Instant.now()
++    val cur = h.horas.firstOrNull { !now.isBefore(it.start) && now.isBefore(it.end) }
++    cur?.let { Pill("Now: ${it.lord} hora until ${fmtTime(it.end, z)}", KpColors.Gold) }
++    Text("Your running pair ${h.dashaPair.first}–${h.dashaPair.second} is served by (hora + sub, or day lord + hora):", style = MaterialTheme.typography.labelMedium)
++    if (h.dashaPins.isEmpty()) Text("(no such hora today)", style = MaterialTheme.typography.bodySmall)
++    h.dashaPins.forEach { Text("${fmtTime(it.start, z)}–${fmtTime(it.end, z)}  ·  ${it.hora}" + (it.sub?.let { s -> " hora, $s sub" } ?: " hora on ${h.dayLord} day"), style = MaterialTheme.typography.bodySmall) }
++    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .4f))
++    h.muhurta.forEach { (name, ws) ->
++        Text(name, style = MaterialTheme.typography.labelMedium, color = if (name.startsWith("Avoid")) KpColors.Bad else KpColors.Good)
++        Text(if (ws.isEmpty()) "(none today)" else ws.take(6).joinToString("   ") { "${fmtTime(it.start, z)}–${fmtTime(it.end, z)}" }, style = MaterialTheme.typography.bodySmall)
++    }
++    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .4f))
++    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
++        h.horas.forEach { Pill("${it.lord.take(3)} ${fmtTime(it.start, z)}", if (it.night) MaterialTheme.colorScheme.secondary else KpColors.Gold) }
++    }
++}
+diff --git a/tools/host-check/GoldenCheck.kt b/tools/host-check/GoldenCheck.kt
+index b5a9ef9..cfd61cf 100644
+--- a/tools/host-check/GoldenCheck.kt
++++ b/tools/host-check/GoldenCheck.kt
+@@ -52,6 +52,12 @@ fun main(args: Array<String>) {
+         val gl = wins(r["lucky"]); ok(rep.lucky.size == gl.size && rep.lucky.zip(gl).all { (p, z) -> sec(p.start, inst(z[0])) <= 2 }, "$day lucky")
+         ok(rep.moonPins.size == l(r["moon_pins"]).size && rep.sunPinToday == r["sun_pin_today"], "$day pins")
+         for ((n, tv) in m(r["transits"])) { val t = m(tv); val q = rep.transits.getValue(n); ok(q.star == t["star"] && q.sub == t["sub"] && q.signLord == t["sign_lord"], "$day transit $n") } }
++    for ((day, hv) in m(g["hora"])) { val h = m(hv); val hr = horaReport(ctx, LocalDate.parse(day).atStartOfDay(ist))
++        ok(hr.dayLord == h["day_lord"] && listOf(hr.dashaPair.first, hr.dashaPair.second) == l(h["pair"]), "$day hora lord/pair")
++        val gh = l(h["horas"]).map { l(it) }; ok(hr.horas.size == gh.size, "$day hora count")
++        hr.horas.zip(gh).forEach { (a, b) -> ok(sec(a.start, inst(b[0])) <= 2 && sec(a.end, inst(b[1])) <= 2 && a.lord == b[2] && a.night == b[3], "$day hora ${a.lord}") }
++        fun pins(ws: List<HoraPin>, o: Any?, n: String) { val gp = l(o).map { l(it) }; ok(ws.size == gp.size && ws.zip(gp).all { (p, z) -> sec(p.start, inst(z[0])) <= 2 && sec(p.end, inst(z[1])) <= 2 && p.hora == z[2] && p.sub == z[3] && p.kind == z[4] }, "$day $n pins ${ws.size} vs ${gp.size}") }
++        pins(hr.dashaPins, h["dasha_pins"], "dasha"); for ((k, v) in m(h["muhurta"])) pins(hr.muhurta.getValue(k), v, k) }
+     val tol = birthTimeTolerance(inst(u["dt"]), d(u["lat"]), d(u["lon"]), 30)
+     for ((n, tv) in m(g["birth_tol"])) { val t = m(tv); val q = tol.getValue(n)
+         ok(q.sub == t["sub"] && q.before == (t["before"] as Double?)?.toInt() && q.after == (t["after"] as Double?)?.toInt(), "tol $n ${q} vs $t") }
+diff --git a/tools/reference/gen_golden.py b/tools/reference/gen_golden.py
+index 0e6da49..0f5b73a 100644
+--- a/tools/reference/gen_golden.py
++++ b/tools/reference/gen_golden.py
+@@ -3,7 +3,7 @@ Usage: python gen_golden.py > golden.json  -> consumed by tools/host-check (the
+ import json
+ from datetime import datetime, timezone, timedelta
+ from zoneinfo import ZoneInfo
+-import kp_core as kp, kp_rules as kr, kp_daily as kd
++import kp_core as kp, kp_rules as kr, kp_daily as kd, kp_hora as kh
+ 
+ IST = ZoneInfo("Asia/Kolkata")
+ iso = lambda d: d.astimezone(timezone.utc).isoformat()
+@@ -59,5 +59,12 @@ for day in ("2026-10-16", "2026-10-17"):
+     }
+ for x in kr.pin_period(ch, rules["job"], now, now + timedelta(days=730)):
+     out["pins"].append([iso(x["start"]), iso(x["end"]), x["star"], x["sub"], list(x["chain"])])
++out["hora"] = {}
++for day in ("2026-10-16", "2026-10-21"):
++    d0 = datetime.fromisoformat(day).replace(tzinfo=IST); hr = kh.hora_report(ctx, d0)
++    pw = lambda ws: [[iso(x["start"]), iso(x["end"]), x["hora"], x["sub"], x["kind"]] for x in ws]
++    out["hora"][day] = {"day_lord": hr["day_lord"], "pair": list(hr["dasha_pair"]),
++        "horas": [[iso(h["start"]), iso(h["end"]), h["lord"], h["night"]] for h in hr["horas"]],
++        "dasha_pins": pw(hr["dasha_pins"]), "muhurta": {k: pw(v) for k, v in hr["muhurta"].items()}}
+ out["birth_tol"] = kr.birth_time_tolerance(specs["user2000"][0], 26.4446, 91.4373, 30)
+ print(json.dumps(out, default=lambda o: sorted(o) if isinstance(o, set) else str(o)))
+diff --git a/tools/reference/golden.json b/tools/reference/golden.json
+index aea81ff..58f1c98 100644
+--- a/tools/reference/golden.json
++++ b/tools/reference/golden.json
+@@ -1 +1 @@
+-{"charts": {"anchor1990": {"dt": "1990-05-15T05:00:00+00:00", "lat": 28.6139, "lon": 77.209, "ayanamsa": 23.625686839594266, "asc": [99.98151056586129, "Saturn", "Venus", "Mercury"], "planets": {"Sun": [30.485933043172093, 10, "Venus", "Sun", "Rahu", "Ketu", false], "Moon": [269.9390904803511, 6, "Jupiter", "Sun", "Rahu", "Saturn", false], "Mars": [324.4882729841389, 8, "Saturn", "Jupiter", "Mercury", "Venus", false], "Mercury": [14.421804908506017, 10, "Mars", "Venus", "Venus", "Rahu", true], "Jupiter": [75.85762411518624, 12, "Mercury", "Rahu", "Venus", "Moon", false], "Venus": [348.8567594903525, 9, "Jupiter", "Mercury", "Ketu", "Mars", false], "Saturn": [271.62536641168487, 6, "Saturn", "Sun", "Jupiter", "Saturn", true], "Rahu": [287.72564726132094, 7, "Saturn", "Moon", "Saturn", "Jupiter", true], "Ketu": [107.72564726132094, 1, "Moon", "Mercury", "Mercury", "Rahu", true]}, "cusps": [[99.98151056586129, "Moon", "Saturn", "Venus", "Mercury"], [123.64591787339815, "Sun", "Ketu", "Sun", "Venus"], [151.1978114748229, "Mercury", "Sun", "Rahu", "Mars"], [183.18439997807832, "Venus", "Mars", "Venus", "Moon"], [217.28189328659943, "Mars", "Saturn", "Mercury", "Saturn"], [250.02101160353664, "Jupiter", "Ketu", "Saturn", "Ketu"], [279.9815105658613, "Saturn", "Sun", "Venus", "Ketu"], [303.64591787339816, "Saturn", "Mars", "Venus", "Rahu"], [331.19781147482297, "Jupiter", "Jupiter", "Mars", "Venus"], [3.1843999780783214, "Mars", "Ketu", "Sun", "Rahu"], [37.28189328659941, "Venus", "Sun", "Ketu", "Mars"], [70.02101160353659, "Mercury", "Rahu", "Jupiter", "Moon"]], "sig": {"1": {"A": [], "B": ["Ketu"], "C": ["Rahu"], "D": ["Moon"]}, "2": {"A": [], "B": [], "C": ["Sun", "Moon", "Saturn"], "D": ["Sun"]}, "3": {"A": [], "B": [], "C": ["Venus", "Ketu"], "D": ["Mercury"]}, "4": {"A": [], "B": [], "C": ["Mercury"], "D": ["Venus"]}, "5": {"A": [], "B": [], "C": [], "D": ["Mars"]}, "6": {"A": ["Rahu"], "B": ["Moon", "Saturn"], "C": ["Mars"], "D": ["Jupiter"]}, "7": {"A": ["Jupiter"], "B": ["Rahu"], "C": [], "D": ["Saturn"]}, "8": {"A": [], "B": ["Mars"], "C": [], "D": ["Saturn"]}, "9": {"A": ["Mercury"], "B": ["Venus"], "C": ["Mars"], "D": ["Jupiter"]}, "10": {"A": ["Sun", "Moon", "Venus", "Saturn", "Ketu"], "B": ["Sun", "Mercury"], "C": [], "D": ["Mars"]}, "11": {"A": [], "B": [], "C": ["Mercury"], "D": ["Venus"]}, "12": {"A": ["Mars"], "B": ["Jupiter"], "C": ["Venus", "Ketu"], "D": ["Mercury"]}}, "houses": {"Sun": [10, 2], "Moon": [10, 6, 2, 1], "Mars": [12, 8, 6, 9, 5, 10], "Mercury": [9, 10, 4, 11, 3, 12], "Jupiter": [7, 12, 6, 9], "Venus": [10, 9, 3, 12, 4, 11], "Saturn": [10, 6, 2, 7, 8], "Rahu": [6, 7, 1, 10, 2, 8], "Ketu": [10, 1, 3, 12, 9, 4, 11, 6, 2]}, "agents": {"Rahu": ["Moon", "Saturn"], "Ketu": ["Mercury", "Moon"]}, "mds": [["Sun", "1988-11-23T08:16:11.215772+00:00", "1994-11-23T20:16:11.215772+00:00"], ["Moon", "1994-11-23T20:16:11.215772+00:00", "2004-11-23T08:16:11.215772+00:00"], ["Mars", "2004-11-23T08:16:11.215772+00:00", "2011-11-24T02:16:11.215772+00:00"], ["Rahu", "2011-11-24T02:16:11.215772+00:00", "2029-11-23T14:16:11.215772+00:00"], ["Jupiter", "2029-11-23T14:16:11.215772+00:00", "2045-11-23T14:16:11.215772+00:00"], ["Saturn", "2045-11-23T14:16:11.215772+00:00", "2064-11-23T08:16:11.215772+00:00"], ["Mercury", "2064-11-23T08:16:11.215772+00:00", "2081-11-23T14:16:11.215772+00:00"], ["Ketu", "2081-11-23T14:16:11.215772+00:00", "2088-11-23T08:16:11.215772+00:00"], ["Venus", "2088-11-23T08:16:11.215772+00:00", "2108-11-24T08:16:11.215772+00:00"]]}, "user2000": {"dt": "2000-11-21T12:42:00+00:00", "lat": 26.4446, "lon": 91.4373, "ayanamsa": 23.772670711193143, "asc": [61.794477924161754, "Mars", "Mercury", "Saturn"], "planets": {"Sun": [215.74290802591037, 6, "Mars", "Saturn", "Mercury", "Ketu", false], "Moon": [162.4944299322668, 4, "Mercury", "Moon", "Rahu", "Saturn", false], "Mars": [166.93220818955777, 4, "Mercury", "Moon", "Saturn", "Moon", false], "Mercury": [197.87986434540863, 5, "Venus", "Rahu", "Sun", "Mercury", false], "Jupiter": [43.27492392721541, 12, "Venus", "Moon", "Rahu", "Venus", true], "Venus": [256.325219124357, 7, "Jupiter", "Venus", "Moon", "Mars", false], "Saturn": [33.55954176757001, 12, "Venus", "Sun", "Saturn", "Mercury", true], "Rahu": [84.06032668631454, 1, "Mercury", "Jupiter", "Mercury", "Mercury", true], "Ketu": [264.0603266863145, 7, "Jupiter", "Venus", "Mercury", "Mercury", true]}, "cusps": [[61.794477924161754, "Mercury", "Mars", "Mercury", "Saturn"], [85.1889728952131, "Mercury", "Jupiter", "Mercury", "Rahu"], [109.41399376213145, "Moon", "Mercury", "Venus", "Venus"], [137.54283865740098, "Sun", "Venus", "Mars", "Jupiter"], [171.15041201125672, "Mercury", "Moon", "Venus", "Mars"], [207.6593072028558, "Venus", "Jupiter", "Venus", "Rahu"], [241.79447792416175, "Jupiter", "Ketu", "Venus", "Rahu"], [265.1889728952131, "Jupiter", "Venus", "Mercury", "Rahu"], [289.4139937621315, "Saturn", "Moon", "Mercury", "Saturn"], [317.542838657401, "Saturn", "Rahu", "Sun", "Mars"], [351.1504120112567, "Jupiter", "Mercury", "Venus", "Mercury"], [27.659307202855818, "Mars", "Sun", "Moon", "Jupiter"]], "sig": {"1": {"A": ["Mercury"], "B": ["Rahu"], "C": [], "D": ["Mercury"]}, "2": {"A": [], "B": [], "C": [], "D": ["Mercury"]}, "3": {"A": [], "B": [], "C": ["Moon", "Mars", "Jupiter"], "D": ["Moon"]}, "4": {"A": ["Moon", "Mars", "Jupiter"], "B": ["Moon", "Mars"], "C": ["Saturn"], "D": ["Sun"]}, "5": {"A": [], "B": ["Mercury"], "C": [], "D": ["Mercury"]}, "6": {"A": ["Saturn"], "B": ["Sun"], "C": ["Venus", "Ketu"], "D": ["Venus"]}, "7": {"A": ["Venus", "Ketu"], "B": ["Venus", "Ketu"], "C": ["Rahu"], "D": ["Jupiter"]}, "8": {"A": [], "B": [], "C": ["Rahu"], "D": ["Jupiter"]}, "9": {"A": [], "B": [], "C": ["Sun"], "D": ["Saturn"]}, "10": {"A": [], "B": [], "C": ["Sun"], "D": ["Saturn"]}, "11": {"A": [], "B": [], "C": ["Rahu"], "D": ["Jupiter"]}, "12": {"A": ["Sun", "Rahu"], "B": ["Jupiter", "Saturn"], "C": [], "D": ["Mars"]}}, "houses": {"Sun": [12, 6, 9, 10, 4], "Moon": [4, 3], "Mars": [4, 3, 12], "Mercury": [1, 5, 2], "Jupiter": [4, 12, 3, 7, 8, 11], "Venus": [7, 6], "Saturn": [6, 12, 4, 9, 10], "Rahu": [12, 1, 7, 8, 11, 4, 3, 5, 2], "Ketu": [7, 6, 4, 12, 3, 8, 11]}, "agents": {"Rahu": ["Jupiter", "Mercury"], "Ketu": ["Venus", "Jupiter"]}, "mds": [["Moon", "1999-01-08T05:04:13.477123+00:00", "2009-01-07T17:04:13.477123+00:00"], ["Mars", "2009-01-07T17:04:13.477123+00:00", "2016-01-08T11:04:13.477123+00:00"], ["Rahu", "2016-01-08T11:04:13.477123+00:00", "2034-01-07T23:04:13.477123+00:00"], ["Jupiter", "2034-01-07T23:04:13.477123+00:00", "2050-01-07T23:04:13.477123+00:00"], ["Saturn", "2050-01-07T23:04:13.477123+00:00", "2069-01-07T17:04:13.477123+00:00"], ["Mercury", "2069-01-07T17:04:13.477123+00:00", "2086-01-07T23:04:13.477123+00:00"], ["Ketu", "2086-01-07T23:04:13.477123+00:00", "2093-01-07T17:04:13.477123+00:00"], ["Venus", "2093-01-07T17:04:13.477123+00:00", "2113-01-08T17:04:13.477123+00:00"], ["Sun", "2113-01-08T17:04:13.477123+00:00", "2119-01-09T05:04:13.477123+00:00"]]}}, "ruling": [{"at": "2026-10-15T23:00:00+00:00", "chain": {"asc_sub": "Jupiter", "asc_star": "Moon", "asc_sign": "Mercury", "moon_sub": "Saturn", "moon_star": "Mercury", "moon_sign": "Mars", "day": "Jupiter"}, "ordered": ["Jupiter", "Moon", "Mercury", "Saturn", "Mars"], "derived": ["Rahu"]}, {"at": "2026-10-16T00:35:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Rahu", "asc_sign": "Venus", "moon_sub": "Saturn", "moon_star": "Mercury", "moon_sign": "Mars", "day": "Venus"}, "ordered": ["Rahu", "Venus", "Saturn", "Mercury", "Mars"], "derived": []}, {"at": "2026-10-16T07:30:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Moon", "asc_sign": "Saturn", "moon_sub": "Sun", "moon_star": "Ketu", "moon_sign": "Jupiter", "day": "Venus"}, "ordered": ["Rahu", "Moon", "Saturn", "Sun", "Ketu", "Jupiter", "Venus"], "derived": []}, {"at": "2026-10-18T00:29:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Rahu", "asc_sign": "Venus", "moon_sub": "Saturn", "moon_star": "Venus", "moon_sign": "Jupiter", "day": "Sun"}, "ordered": ["Rahu", "Venus", "Saturn", "Jupiter", "Sun"], "derived": ["Ketu"]}, {"at": "2026-10-18T18:29:00+00:00", "chain": {"asc_sub": "Mercury", "asc_star": "Mercury", "asc_sign": "Moon", "moon_sub": "Jupiter", "moon_star": "Sun", "moon_sign": "Saturn", "day": "Sun"}, "ordered": ["Mercury", "Moon", "Jupiter", "Sun", "Saturn"], "derived": ["Rahu", "Ketu"]}], "life": {"marriage": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [7], "denial": [6], "verdict": "mixed"}, "windows": []}, "childbirth": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "job": {"promise": {"cusp_sub_lord": "Sun", "houses": [4, 6, 9, 10, 12], "support": [6, 10], "denial": [9], "verdict": "promised"}, "windows": [["2036-02-26T03:52:13.477123+00:00", "2038-09-08T11:04:13.477123+00:00", [["Jupiter", "Saturn"]]]]}, "retirement": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [1, 5], "denial": [2], "verdict": "promised"}, "windows": [["2030-07-27T20:22:13.477123+00:00", "2031-06-21T13:46:13.477123+00:00", [["Rahu", "Sun"]]]]}, "higher_education": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [5], "verdict": "denied"}, "windows": []}, "study_abroad": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [5], "verdict": "denied"}, "windows": []}, "foreign_travel": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [], "denial": [4], "verdict": "denied"}, "windows": []}, "property_purchase": {"promise": {"cusp_sub_lord": "Mars", "houses": [3, 4, 12], "support": [4, 12], "denial": [3], "verdict": "promised"}, "windows": [["2034-01-07T23:04:13.477123+00:00", "2038-09-08T11:04:13.477123+00:00", [["Jupiter", "Jupiter"], ["Jupiter", "Saturn"]]]]}, "property_sale": {"promise": {"cusp_sub_lord": "Mars", "houses": [3, 4, 12], "support": [3], "denial": [4], "verdict": "mixed"}, "windows": []}}, "days": {"2026-10-16": {"overall": {"score": 1, "verdict": "Difficult", "raw": 35.4, "backdrop": "heavy"}, "day_lord": "Venus", "dasha_chain": ["Rahu", "Ketu", "Sun", "Mercury"], "areas": {"career": {"score": 16, "raw": 47.0, "backdrop": "heavy", "D": -0.17037037037037034, "M": 0.0609567901234568, "T": 0.16435185185185186, "R": 0.24143518518518517, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T00:30:00+00:00"], ["2026-10-16T01:00:00+00:00", "2026-10-16T07:00:00+00:00"], ["2026-10-16T16:30:00+00:00", "2026-10-16T17:30:00+00:00"]], "avoid": [["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "money": {"score": 40, "raw": 29.7, "backdrop": "mixed", "D": -0.05555555555555555, "M": -0.41435185185185186, "T": -0.15972222222222224, "R": -0.3243055555555555, "best": [["2026-10-16T00:00:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T02:30:00+00:00", "2026-10-16T07:00:00+00:00"]], "avoid": [["2026-10-16T12:30:00+00:00", "2026-10-16T17:30:00+00:00"]]}, "relationships": {"score": 18, "raw": 39.5, "backdrop": "heavy", "D": -0.15833333333333333, "M": -0.08410493827160496, "T": -0.1643518518518519, "R": 0.1386574074074074, "best": [["2026-10-16T01:00:00+00:00", "2026-10-16T07:00:00+00:00"], ["2026-10-16T16:30:00+00:00", "2026-10-16T17:30:00+00:00"]], "avoid": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T11:00:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "health": {"score": 1, "raw": 15.5, "backdrop": "heavy", "D": -0.31481481481481477, "M": -0.4722222222222222, "T": -0.39814814814814814, "R": -0.3555555555555555, "best": [["2026-10-16T08:30:00+00:00", "2026-10-16T11:00:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]], "avoid": [["2026-10-16T01:00:00+00:00", "2026-10-16T02:30:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"]]}, "study": {"score": 13, "raw": 43.5, "backdrop": "heavy", "D": -0.14444444444444443, "M": -0.13734567901234568, "T": 0.21296296296296294, "R": 0.006481481481481474, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"]], "avoid": [["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "travel": {"score": 33, "raw": 37.1, "backdrop": "heavy", "D": -0.19444444444444442, "M": -0.24999999999999994, "T": 0.1805555555555556, "R": -0.1046296296296296, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T11:00:00+00:00", "2026-10-16T12:30:00+00:00"]], "avoid": [["2026-10-16T08:30:00+00:00", "2026-10-16T11:00:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}}, "lucky": [["2026-10-15T23:30:00+00:00", "2026-10-16T00:30:00+00:00"], ["2026-10-16T02:30:00+00:00", "2026-10-16T07:00:00+00:00"]], "avoid": [["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]], "moon_pins": [["2026-10-16T07:10:00+00:00", "2026-10-16T08:35:00+00:00", "Ketu", "Sun"], ["2026-10-16T12:20:00+00:00", "2026-10-16T16:25:00+00:00", "Ketu", "Rahu"]], "sun_pin_today": false, "transits": {"Sun": {"sign_lord": "Mercury", "star": "Mars", "sub": "Saturn"}, "Mars": {"sign_lord": "Moon", "star": "Saturn", "sub": "Jupiter"}, "Mercury": {"sign_lord": "Venus", "star": "Jupiter", "sub": "Saturn"}, "Venus": {"sign_lord": "Venus", "star": "Rahu", "sub": "Saturn"}, "Jupiter": {"sign_lord": "Moon", "star": "Mercury", "sub": "Saturn"}, "Saturn": {"sign_lord": "Jupiter", "star": "Saturn", "sub": "Jupiter"}, "Rahu": {"sign_lord": "Saturn", "star": "Mars", "sub": "Venus"}, "Ketu": {"sign_lord": "Sun", "star": "Ketu", "sub": "Venus"}}}, "2026-10-17": {"overall": {"score": 24, "verdict": "Challenging", "raw": 41.0, "backdrop": "heavy"}, "day_lord": "Saturn", "dasha_chain": ["Rahu", "Ketu", "Sun", "Mercury"], "areas": {"career": {"score": 12, "raw": 46.7, "backdrop": "heavy", "D": -0.1833333333333333, "M": 0.08564814814814815, "T": 0.08031121399176955, "R": 0.14953703703703705, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "money": {"score": 93, "raw": 43.3, "backdrop": "mixed", "D": -0.05, "M": -0.006944444444444444, "T": -0.10165895061728396, "R": -0.14722222222222225, "best": [["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-17T12:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "relationships": {"score": 29, "raw": 43.5, "backdrop": "heavy", "D": -0.14166666666666666, "M": 0.03626543209876541, "T": -0.08397633744855969, "R": 0.04282407407407405, "best": [["2026-10-17T03:00:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T08:30:00+00:00", "2026-10-17T14:00:00+00:00"]]}, "health": {"score": 54, "raw": 28.0, "backdrop": "heavy", "D": -0.3, "M": -0.15123456790123455, "T": -0.2222222222222222, "R": -0.26481481481481484, "best": [["2026-10-17T03:00:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T10:00:00+00:00"]]}, "study": {"score": 22, "raw": 44.3, "backdrop": "heavy", "D": -0.16666666666666666, "M": -0.024691358024691364, "T": 0.09387860082304528, "R": 0.049999999999999996, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T12:00:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "travel": {"score": 54, "raw": 40.2, "backdrop": "heavy", "D": -0.21666666666666665, "M": -0.07253086419753084, "T": 0.0666152263374486, "R": -0.01620370370370368, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T08:30:00+00:00", "2026-10-17T10:00:00+00:00"], ["2026-10-17T12:00:00+00:00", "2026-10-17T14:00:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}}, "lucky": [["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T12:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "moon_pins": [], "sun_pin_today": false, "transits": {"Sun": {"sign_lord": "Mercury", "star": "Mars", "sub": "Saturn"}, "Mars": {"sign_lord": "Moon", "star": "Mercury", "sub": "Mercury"}, "Mercury": {"sign_lord": "Venus", "star": "Jupiter", "sub": "Mercury"}, "Venus": {"sign_lord": "Venus", "star": "Rahu", "sub": "Saturn"}, "Jupiter": {"sign_lord": "Moon", "star": "Mercury", "sub": "Saturn"}, "Saturn": {"sign_lord": "Jupiter", "star": "Saturn", "sub": "Jupiter"}, "Rahu": {"sign_lord": "Saturn", "star": "Mars", "sub": "Venus"}, "Ketu": {"sign_lord": "Sun", "star": "Ketu", "sub": "Venus"}}}}, "pins": [], "periods_at": ["Rahu", "Ketu", "Sun", "Saturn"], "birth_tol": {"H1": {"sub": "Mercury", "before": 8, "after": 1}, "H2": {"sub": "Mercury", "before": 6, "after": 3}, "H3": {"sub": "Venus", "before": 1, "after": 9}, "H4": {"sub": "Mars", "before": 1, "after": 3}, "H5": {"sub": "Venus", "before": 3, "after": 6}, "H6": {"sub": "Venus", "before": 5, "after": 5}, "H7": {"sub": "Venus", "before": 5, "after": 6}, "H8": {"sub": "Mercury", "before": 6, "after": 4}, "H9": {"sub": "Mercury", "before": 7, "after": 2}, "H10": {"sub": "Sun", "before": 1, "after": 3}, "H11": {"sub": "Venus", "before": 7, "after": 2}, "H12": {"sub": "Moon", "before": 2, "after": 3}, "Sun": {"sub": "Mercury", "before": null, "after": null}, "Moon": {"sub": "Rahu", "before": null, "after": null}, "Mars": {"sub": "Saturn", "before": null, "after": null}, "Mercury": {"sub": "Sun", "before": null, "after": null}, "Jupiter": {"sub": "Rahu", "before": null, "after": null}, "Venus": {"sub": "Moon", "before": null, "after": null}, "Saturn": {"sub": "Saturn", "before": null, "after": null}, "Rahu": {"sub": "Mercury", "before": null, "after": null}, "Ketu": {"sub": "Mercury", "before": null, "after": null}}}
++{"charts": {"anchor1990": {"dt": "1990-05-15T05:00:00+00:00", "lat": 28.6139, "lon": 77.209, "ayanamsa": 23.625686839594266, "asc": [99.98151056586129, "Saturn", "Venus", "Mercury"], "planets": {"Sun": [30.485933043172093, 10, "Venus", "Sun", "Rahu", "Ketu", false], "Moon": [269.9390904803511, 6, "Jupiter", "Sun", "Rahu", "Saturn", false], "Mars": [324.4882729841389, 8, "Saturn", "Jupiter", "Mercury", "Venus", false], "Mercury": [14.421804908506017, 10, "Mars", "Venus", "Venus", "Rahu", true], "Jupiter": [75.85762411518624, 12, "Mercury", "Rahu", "Venus", "Moon", false], "Venus": [348.8567594903525, 9, "Jupiter", "Mercury", "Ketu", "Mars", false], "Saturn": [271.62536641168487, 6, "Saturn", "Sun", "Jupiter", "Saturn", true], "Rahu": [287.72564726132094, 7, "Saturn", "Moon", "Saturn", "Jupiter", true], "Ketu": [107.72564726132094, 1, "Moon", "Mercury", "Mercury", "Rahu", true]}, "cusps": [[99.98151056586129, "Moon", "Saturn", "Venus", "Mercury"], [123.64591787339815, "Sun", "Ketu", "Sun", "Venus"], [151.1978114748229, "Mercury", "Sun", "Rahu", "Mars"], [183.18439997807832, "Venus", "Mars", "Venus", "Moon"], [217.28189328659943, "Mars", "Saturn", "Mercury", "Saturn"], [250.02101160353664, "Jupiter", "Ketu", "Saturn", "Ketu"], [279.9815105658613, "Saturn", "Sun", "Venus", "Ketu"], [303.64591787339816, "Saturn", "Mars", "Venus", "Rahu"], [331.19781147482297, "Jupiter", "Jupiter", "Mars", "Venus"], [3.1843999780783214, "Mars", "Ketu", "Sun", "Rahu"], [37.28189328659941, "Venus", "Sun", "Ketu", "Mars"], [70.02101160353659, "Mercury", "Rahu", "Jupiter", "Moon"]], "sig": {"1": {"A": [], "B": ["Ketu"], "C": ["Rahu"], "D": ["Moon"]}, "2": {"A": [], "B": [], "C": ["Sun", "Moon", "Saturn"], "D": ["Sun"]}, "3": {"A": [], "B": [], "C": ["Venus", "Ketu"], "D": ["Mercury"]}, "4": {"A": [], "B": [], "C": ["Mercury"], "D": ["Venus"]}, "5": {"A": [], "B": [], "C": [], "D": ["Mars"]}, "6": {"A": ["Rahu"], "B": ["Moon", "Saturn"], "C": ["Mars"], "D": ["Jupiter"]}, "7": {"A": ["Jupiter"], "B": ["Rahu"], "C": [], "D": ["Saturn"]}, "8": {"A": [], "B": ["Mars"], "C": [], "D": ["Saturn"]}, "9": {"A": ["Mercury"], "B": ["Venus"], "C": ["Mars"], "D": ["Jupiter"]}, "10": {"A": ["Sun", "Moon", "Venus", "Saturn", "Ketu"], "B": ["Sun", "Mercury"], "C": [], "D": ["Mars"]}, "11": {"A": [], "B": [], "C": ["Mercury"], "D": ["Venus"]}, "12": {"A": ["Mars"], "B": ["Jupiter"], "C": ["Venus", "Ketu"], "D": ["Mercury"]}}, "houses": {"Sun": [10, 2], "Moon": [10, 6, 2, 1], "Mars": [12, 8, 6, 9, 5, 10], "Mercury": [9, 10, 4, 11, 3, 12], "Jupiter": [7, 12, 6, 9], "Venus": [10, 9, 3, 12, 4, 11], "Saturn": [10, 6, 2, 7, 8], "Rahu": [6, 7, 1, 10, 2, 8], "Ketu": [10, 1, 3, 12, 9, 4, 11, 6, 2]}, "agents": {"Rahu": ["Moon", "Saturn"], "Ketu": ["Mercury", "Moon"]}, "mds": [["Sun", "1988-11-23T08:16:11.215772+00:00", "1994-11-23T20:16:11.215772+00:00"], ["Moon", "1994-11-23T20:16:11.215772+00:00", "2004-11-23T08:16:11.215772+00:00"], ["Mars", "2004-11-23T08:16:11.215772+00:00", "2011-11-24T02:16:11.215772+00:00"], ["Rahu", "2011-11-24T02:16:11.215772+00:00", "2029-11-23T14:16:11.215772+00:00"], ["Jupiter", "2029-11-23T14:16:11.215772+00:00", "2045-11-23T14:16:11.215772+00:00"], ["Saturn", "2045-11-23T14:16:11.215772+00:00", "2064-11-23T08:16:11.215772+00:00"], ["Mercury", "2064-11-23T08:16:11.215772+00:00", "2081-11-23T14:16:11.215772+00:00"], ["Ketu", "2081-11-23T14:16:11.215772+00:00", "2088-11-23T08:16:11.215772+00:00"], ["Venus", "2088-11-23T08:16:11.215772+00:00", "2108-11-24T08:16:11.215772+00:00"]]}, "user2000": {"dt": "2000-11-21T12:42:00+00:00", "lat": 26.4446, "lon": 91.4373, "ayanamsa": 23.772670711193143, "asc": [61.794477924161754, "Mars", "Mercury", "Saturn"], "planets": {"Sun": [215.74290802591037, 6, "Mars", "Saturn", "Mercury", "Ketu", false], "Moon": [162.4944299322668, 4, "Mercury", "Moon", "Rahu", "Saturn", false], "Mars": [166.93220818955777, 4, "Mercury", "Moon", "Saturn", "Moon", false], "Mercury": [197.87986434540863, 5, "Venus", "Rahu", "Sun", "Mercury", false], "Jupiter": [43.27492392721541, 12, "Venus", "Moon", "Rahu", "Venus", true], "Venus": [256.325219124357, 7, "Jupiter", "Venus", "Moon", "Mars", false], "Saturn": [33.55954176757001, 12, "Venus", "Sun", "Saturn", "Mercury", true], "Rahu": [84.06032668631454, 1, "Mercury", "Jupiter", "Mercury", "Mercury", true], "Ketu": [264.0603266863145, 7, "Jupiter", "Venus", "Mercury", "Mercury", true]}, "cusps": [[61.794477924161754, "Mercury", "Mars", "Mercury", "Saturn"], [85.1889728952131, "Mercury", "Jupiter", "Mercury", "Rahu"], [109.41399376213145, "Moon", "Mercury", "Venus", "Venus"], [137.54283865740098, "Sun", "Venus", "Mars", "Jupiter"], [171.15041201125672, "Mercury", "Moon", "Venus", "Mars"], [207.6593072028558, "Venus", "Jupiter", "Venus", "Rahu"], [241.79447792416175, "Jupiter", "Ketu", "Venus", "Rahu"], [265.1889728952131, "Jupiter", "Venus", "Mercury", "Rahu"], [289.4139937621315, "Saturn", "Moon", "Mercury", "Saturn"], [317.542838657401, "Saturn", "Rahu", "Sun", "Mars"], [351.1504120112567, "Jupiter", "Mercury", "Venus", "Mercury"], [27.659307202855818, "Mars", "Sun", "Moon", "Jupiter"]], "sig": {"1": {"A": ["Mercury"], "B": ["Rahu"], "C": [], "D": ["Mercury"]}, "2": {"A": [], "B": [], "C": [], "D": ["Mercury"]}, "3": {"A": [], "B": [], "C": ["Moon", "Mars", "Jupiter"], "D": ["Moon"]}, "4": {"A": ["Moon", "Mars", "Jupiter"], "B": ["Moon", "Mars"], "C": ["Saturn"], "D": ["Sun"]}, "5": {"A": [], "B": ["Mercury"], "C": [], "D": ["Mercury"]}, "6": {"A": ["Saturn"], "B": ["Sun"], "C": ["Venus", "Ketu"], "D": ["Venus"]}, "7": {"A": ["Venus", "Ketu"], "B": ["Venus", "Ketu"], "C": ["Rahu"], "D": ["Jupiter"]}, "8": {"A": [], "B": [], "C": ["Rahu"], "D": ["Jupiter"]}, "9": {"A": [], "B": [], "C": ["Sun"], "D": ["Saturn"]}, "10": {"A": [], "B": [], "C": ["Sun"], "D": ["Saturn"]}, "11": {"A": [], "B": [], "C": ["Rahu"], "D": ["Jupiter"]}, "12": {"A": ["Sun", "Rahu"], "B": ["Jupiter", "Saturn"], "C": [], "D": ["Mars"]}}, "houses": {"Sun": [12, 6, 9, 10, 4], "Moon": [4, 3], "Mars": [4, 3, 12], "Mercury": [1, 5, 2], "Jupiter": [4, 12, 3, 7, 8, 11], "Venus": [7, 6], "Saturn": [6, 12, 4, 9, 10], "Rahu": [12, 1, 7, 8, 11, 4, 3, 5, 2], "Ketu": [7, 6, 4, 12, 3, 8, 11]}, "agents": {"Rahu": ["Jupiter", "Mercury"], "Ketu": ["Venus", "Jupiter"]}, "mds": [["Moon", "1999-01-08T05:04:13.477123+00:00", "2009-01-07T17:04:13.477123+00:00"], ["Mars", "2009-01-07T17:04:13.477123+00:00", "2016-01-08T11:04:13.477123+00:00"], ["Rahu", "2016-01-08T11:04:13.477123+00:00", "2034-01-07T23:04:13.477123+00:00"], ["Jupiter", "2034-01-07T23:04:13.477123+00:00", "2050-01-07T23:04:13.477123+00:00"], ["Saturn", "2050-01-07T23:04:13.477123+00:00", "2069-01-07T17:04:13.477123+00:00"], ["Mercury", "2069-01-07T17:04:13.477123+00:00", "2086-01-07T23:04:13.477123+00:00"], ["Ketu", "2086-01-07T23:04:13.477123+00:00", "2093-01-07T17:04:13.477123+00:00"], ["Venus", "2093-01-07T17:04:13.477123+00:00", "2113-01-08T17:04:13.477123+00:00"], ["Sun", "2113-01-08T17:04:13.477123+00:00", "2119-01-09T05:04:13.477123+00:00"]]}}, "ruling": [{"at": "2026-10-15T23:00:00+00:00", "chain": {"asc_sub": "Jupiter", "asc_star": "Moon", "asc_sign": "Mercury", "moon_sub": "Saturn", "moon_star": "Mercury", "moon_sign": "Mars", "day": "Jupiter"}, "ordered": ["Jupiter", "Moon", "Mercury", "Saturn", "Mars"], "derived": ["Rahu"]}, {"at": "2026-10-16T00:35:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Rahu", "asc_sign": "Venus", "moon_sub": "Saturn", "moon_star": "Mercury", "moon_sign": "Mars", "day": "Venus"}, "ordered": ["Rahu", "Venus", "Saturn", "Mercury", "Mars"], "derived": []}, {"at": "2026-10-16T07:30:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Moon", "asc_sign": "Saturn", "moon_sub": "Sun", "moon_star": "Ketu", "moon_sign": "Jupiter", "day": "Venus"}, "ordered": ["Rahu", "Moon", "Saturn", "Sun", "Ketu", "Jupiter", "Venus"], "derived": []}, {"at": "2026-10-18T00:29:00+00:00", "chain": {"asc_sub": "Rahu", "asc_star": "Rahu", "asc_sign": "Venus", "moon_sub": "Saturn", "moon_star": "Venus", "moon_sign": "Jupiter", "day": "Sun"}, "ordered": ["Rahu", "Venus", "Saturn", "Jupiter", "Sun"], "derived": ["Ketu"]}, {"at": "2026-10-18T18:29:00+00:00", "chain": {"asc_sub": "Mercury", "asc_star": "Mercury", "asc_sign": "Moon", "moon_sub": "Jupiter", "moon_star": "Sun", "moon_sign": "Saturn", "day": "Sun"}, "ordered": ["Mercury", "Moon", "Jupiter", "Sun", "Saturn"], "derived": ["Rahu", "Ketu"]}], "life": {"marriage": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [7], "denial": [6], "verdict": "mixed"}, "windows": []}, "childbirth": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "job": {"promise": {"cusp_sub_lord": "Sun", "houses": [4, 6, 9, 10, 12], "support": [6, 10], "denial": [9], "verdict": "promised"}, "windows": [["2036-02-26T03:52:13.477123+00:00", "2038-09-08T11:04:13.477123+00:00", [["Jupiter", "Saturn"]]]]}, "retirement": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [1, 5], "denial": [2], "verdict": "promised"}, "windows": [["2030-07-27T20:22:13.477123+00:00", "2031-06-21T13:46:13.477123+00:00", [["Rahu", "Sun"]]]]}, "higher_education": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [5], "verdict": "denied"}, "windows": []}, "study_abroad": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [5], "verdict": "denied"}, "windows": []}, "foreign_travel": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [], "denial": [4], "verdict": "denied"}, "windows": []}, "property_purchase": {"promise": {"cusp_sub_lord": "Mars", "houses": [3, 4, 12], "support": [4, 12], "denial": [3], "verdict": "promised"}, "windows": [["2034-01-07T23:04:13.477123+00:00", "2038-09-08T11:04:13.477123+00:00", [["Jupiter", "Jupiter"], ["Jupiter", "Saturn"]]]]}, "property_sale": {"promise": {"cusp_sub_lord": "Mars", "houses": [3, 4, 12], "support": [3], "denial": [4], "verdict": "mixed"}, "windows": []}, "engagement": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [7], "denial": [6], "verdict": "mixed"}, "windows": []}, "separation": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [7], "verdict": "mixed"}, "windows": []}, "divorce": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [7], "verdict": "mixed"}, "windows": []}, "second_marriage": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [2], "denial": [1], "verdict": "mixed"}, "windows": []}, "partnership_new": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [7], "denial": [6], "verdict": "mixed"}, "windows": []}, "partnership_end": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [7], "verdict": "mixed"}, "windows": []}, "first_salary": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [2], "denial": [1, 5], "verdict": "mixed"}, "windows": []}, "reinstatement": {"promise": {"cusp_sub_lord": "Sun", "houses": [4, 6, 9, 10, 12], "support": [6, 10], "denial": [9, 12], "verdict": "mixed"}, "windows": []}, "suspension": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "termination_of_service": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "transfer": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "deputation_with_gain": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [5], "denial": [], "verdict": "mixed"}, "windows": []}, "selection_for_post": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "loan_borrowing": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [], "verdict": "mixed"}, "windows": []}, "loan_repayment": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "windfall_gain": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "speculation_gain": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [], "verdict": "mixed"}, "windows": []}, "imprisonment": {"promise": {"cusp_sub_lord": "Moon", "houses": [3, 4], "support": [3], "denial": [], "verdict": "mixed"}, "windows": []}, "accident_on_journey": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [], "verdict": "mixed"}, "windows": []}, "phd_thesis": {"promise": {"cusp_sub_lord": "Mercury", "houses": [1, 2, 5], "support": [], "denial": [], "verdict": "denied"}, "windows": []}, "vehicle_purchase": {"promise": {"cusp_sub_lord": "Mars", "houses": [3, 4, 12], "support": [4], "denial": [], "verdict": "mixed"}, "windows": []}, "tenant_arrival": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [], "verdict": "mixed"}, "windows": []}, "tenant_vacate": {"promise": {"cusp_sub_lord": "Venus", "houses": [6, 7], "support": [6], "denial": [], "verdict": "mixed"}, "windows": []}}, "days": {"2026-10-16": {"overall": {"score": 1, "verdict": "Difficult", "raw": 35.4, "backdrop": "heavy"}, "day_lord": "Venus", "dasha_chain": ["Rahu", "Ketu", "Sun", "Mercury"], "areas": {"career": {"score": 16, "raw": 47.0, "backdrop": "heavy", "D": -0.17037037037037034, "M": 0.0609567901234568, "T": 0.16435185185185186, "R": 0.24143518518518517, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T00:30:00+00:00"], ["2026-10-16T01:00:00+00:00", "2026-10-16T07:00:00+00:00"], ["2026-10-16T16:30:00+00:00", "2026-10-16T17:30:00+00:00"]], "avoid": [["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "money": {"score": 40, "raw": 29.7, "backdrop": "mixed", "D": -0.05555555555555555, "M": -0.41435185185185186, "T": -0.15972222222222224, "R": -0.3243055555555555, "best": [["2026-10-16T00:00:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T02:30:00+00:00", "2026-10-16T07:00:00+00:00"]], "avoid": [["2026-10-16T12:30:00+00:00", "2026-10-16T17:30:00+00:00"]]}, "relationships": {"score": 18, "raw": 39.5, "backdrop": "heavy", "D": -0.15833333333333333, "M": -0.08410493827160496, "T": -0.1643518518518519, "R": 0.1386574074074074, "best": [["2026-10-16T01:00:00+00:00", "2026-10-16T07:00:00+00:00"], ["2026-10-16T16:30:00+00:00", "2026-10-16T17:30:00+00:00"]], "avoid": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T11:00:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "health": {"score": 1, "raw": 15.5, "backdrop": "heavy", "D": -0.31481481481481477, "M": -0.4722222222222222, "T": -0.39814814814814814, "R": -0.3555555555555555, "best": [["2026-10-16T08:30:00+00:00", "2026-10-16T11:00:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]], "avoid": [["2026-10-16T01:00:00+00:00", "2026-10-16T02:30:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"]]}, "study": {"score": 13, "raw": 43.5, "backdrop": "heavy", "D": -0.14444444444444443, "M": -0.13734567901234568, "T": 0.21296296296296294, "R": 0.006481481481481474, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"]], "avoid": [["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}, "travel": {"score": 33, "raw": 37.1, "backdrop": "heavy", "D": -0.19444444444444442, "M": -0.24999999999999994, "T": 0.1805555555555556, "R": -0.1046296296296296, "best": [["2026-10-15T23:30:00+00:00", "2026-10-16T01:00:00+00:00"], ["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T11:00:00+00:00", "2026-10-16T12:30:00+00:00"]], "avoid": [["2026-10-16T08:30:00+00:00", "2026-10-16T11:00:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]]}}, "lucky": [["2026-10-15T23:30:00+00:00", "2026-10-16T00:30:00+00:00"], ["2026-10-16T02:30:00+00:00", "2026-10-16T07:00:00+00:00"]], "avoid": [["2026-10-16T07:00:00+00:00", "2026-10-16T08:30:00+00:00"], ["2026-10-16T12:30:00+00:00", "2026-10-16T16:30:00+00:00"]], "moon_pins": [["2026-10-16T07:10:00+00:00", "2026-10-16T08:35:00+00:00", "Ketu", "Sun"], ["2026-10-16T12:20:00+00:00", "2026-10-16T16:25:00+00:00", "Ketu", "Rahu"]], "sun_pin_today": false, "transits": {"Sun": {"sign_lord": "Mercury", "star": "Mars", "sub": "Saturn"}, "Mars": {"sign_lord": "Moon", "star": "Saturn", "sub": "Jupiter"}, "Mercury": {"sign_lord": "Venus", "star": "Jupiter", "sub": "Saturn"}, "Venus": {"sign_lord": "Venus", "star": "Rahu", "sub": "Saturn"}, "Jupiter": {"sign_lord": "Moon", "star": "Mercury", "sub": "Saturn"}, "Saturn": {"sign_lord": "Jupiter", "star": "Saturn", "sub": "Jupiter"}, "Rahu": {"sign_lord": "Saturn", "star": "Mars", "sub": "Venus"}, "Ketu": {"sign_lord": "Sun", "star": "Ketu", "sub": "Venus"}}}, "2026-10-17": {"overall": {"score": 24, "verdict": "Challenging", "raw": 41.0, "backdrop": "heavy"}, "day_lord": "Saturn", "dasha_chain": ["Rahu", "Ketu", "Sun", "Mercury"], "areas": {"career": {"score": 12, "raw": 46.7, "backdrop": "heavy", "D": -0.1833333333333333, "M": 0.08564814814814815, "T": 0.08031121399176955, "R": 0.14953703703703705, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "money": {"score": 93, "raw": 43.3, "backdrop": "mixed", "D": -0.05, "M": -0.006944444444444444, "T": -0.10165895061728396, "R": -0.14722222222222225, "best": [["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-17T12:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "relationships": {"score": 29, "raw": 43.5, "backdrop": "heavy", "D": -0.14166666666666666, "M": 0.03626543209876541, "T": -0.08397633744855969, "R": 0.04282407407407405, "best": [["2026-10-17T03:00:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T08:30:00+00:00", "2026-10-17T14:00:00+00:00"]]}, "health": {"score": 54, "raw": 28.0, "backdrop": "heavy", "D": -0.3, "M": -0.15123456790123455, "T": -0.2222222222222222, "R": -0.26481481481481484, "best": [["2026-10-17T03:00:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T10:00:00+00:00"]]}, "study": {"score": 22, "raw": 44.3, "backdrop": "heavy", "D": -0.16666666666666666, "M": -0.024691358024691364, "T": 0.09387860082304528, "R": 0.049999999999999996, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T04:00:00+00:00", "2026-10-17T12:00:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}, "travel": {"score": 54, "raw": 40.2, "backdrop": "heavy", "D": -0.21666666666666665, "M": -0.07253086419753084, "T": 0.0666152263374486, "R": -0.01620370370370368, "best": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T08:30:00+00:00", "2026-10-17T10:00:00+00:00"], ["2026-10-17T12:00:00+00:00", "2026-10-17T14:00:00+00:00"]], "avoid": [["2026-10-17T00:30:00+00:00", "2026-10-17T04:00:00+00:00"], ["2026-10-17T14:00:00+00:00", "2026-10-17T17:30:00+00:00"]]}}, "lucky": [["2026-10-17T04:00:00+00:00", "2026-10-17T08:30:00+00:00"]], "avoid": [["2026-10-16T23:30:00+00:00", "2026-10-17T00:30:00+00:00"], ["2026-10-17T12:00:00+00:00", "2026-10-17T17:30:00+00:00"]], "moon_pins": [], "sun_pin_today": false, "transits": {"Sun": {"sign_lord": "Mercury", "star": "Mars", "sub": "Saturn"}, "Mars": {"sign_lord": "Moon", "star": "Mercury", "sub": "Mercury"}, "Mercury": {"sign_lord": "Venus", "star": "Jupiter", "sub": "Mercury"}, "Venus": {"sign_lord": "Venus", "star": "Rahu", "sub": "Saturn"}, "Jupiter": {"sign_lord": "Moon", "star": "Mercury", "sub": "Saturn"}, "Saturn": {"sign_lord": "Jupiter", "star": "Saturn", "sub": "Jupiter"}, "Rahu": {"sign_lord": "Saturn", "star": "Mars", "sub": "Venus"}, "Ketu": {"sign_lord": "Sun", "star": "Ketu", "sub": "Venus"}}}}, "pins": [], "periods_at": ["Rahu", "Ketu", "Sun", "Saturn"], "hora": {"2026-10-16": {"day_lord": "Venus", "pair": ["Rahu", "Ketu"], "horas": [["2026-10-15T23:57:36.546865+00:00", "2026-10-16T00:54:39.196838+00:00", "Venus", false], ["2026-10-16T00:54:39.196838+00:00", "2026-10-16T01:51:41.846811+00:00", "Mercury", false], ["2026-10-16T01:51:41.846811+00:00", "2026-10-16T02:48:44.496784+00:00", "Moon", false], ["2026-10-16T02:48:44.496784+00:00", "2026-10-16T03:45:47.146757+00:00", "Saturn", false], ["2026-10-16T03:45:47.146757+00:00", "2026-10-16T04:42:49.796730+00:00", "Jupiter", false], ["2026-10-16T04:42:49.796730+00:00", "2026-10-16T05:39:52.446703+00:00", "Mars", false], ["2026-10-16T05:39:52.446703+00:00", "2026-10-16T06:36:55.096676+00:00", "Sun", false], ["2026-10-16T06:36:55.096676+00:00", "2026-10-16T07:33:57.746649+00:00", "Venus", false], ["2026-10-16T07:33:57.746649+00:00", "2026-10-16T08:31:00.396622+00:00", "Mercury", false], ["2026-10-16T08:31:00.396622+00:00", "2026-10-16T09:28:03.046595+00:00", "Moon", false], ["2026-10-16T09:28:03.046595+00:00", "2026-10-16T10:25:05.696568+00:00", "Saturn", false], ["2026-10-16T10:25:05.696568+00:00", "2026-10-16T11:22:08.346541+00:00", "Jupiter", false], ["2026-10-16T11:22:08.346541+00:00", "2026-10-16T12:25:08.395521+00:00", "Mars", true], ["2026-10-16T12:25:08.395521+00:00", "2026-10-16T13:28:08.444501+00:00", "Sun", true], ["2026-10-16T13:28:08.444501+00:00", "2026-10-16T14:31:08.493481+00:00", "Venus", true], ["2026-10-16T14:31:08.493481+00:00", "2026-10-16T15:34:08.542461+00:00", "Mercury", true], ["2026-10-16T15:34:08.542461+00:00", "2026-10-16T16:37:08.591441+00:00", "Moon", true], ["2026-10-16T16:37:08.591441+00:00", "2026-10-16T17:40:08.640421+00:00", "Saturn", true], ["2026-10-16T17:40:08.640421+00:00", "2026-10-16T18:43:08.689401+00:00", "Jupiter", true], ["2026-10-16T18:43:08.689401+00:00", "2026-10-16T19:46:08.738381+00:00", "Mars", true], ["2026-10-16T19:46:08.738381+00:00", "2026-10-16T20:49:08.787361+00:00", "Sun", true], ["2026-10-16T20:49:08.787361+00:00", "2026-10-16T21:52:08.836341+00:00", "Venus", true], ["2026-10-16T21:52:08.836341+00:00", "2026-10-16T22:55:08.885321+00:00", "Mercury", true], ["2026-10-16T22:55:08.885321+00:00", "2026-10-16T23:58:08.934298+00:00", "Moon", true]], "dasha_pins": [], "muhurta": {"Marriage (Venus + Jupiter)": [["2026-10-16T00:30:12.346849+00:00", "2026-10-16T00:38:21.296845+00:00", "Venus", "Jupiter", "hora+sub"], ["2026-10-16T03:45:47.146757+00:00", "2026-10-16T04:42:49.796730+00:00", "Jupiter", null, "day+hora"], ["2026-10-16T04:10:13.996745+00:00", "2026-10-16T04:18:22.946741+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-16T07:09:30.896660+00:00", "2026-10-16T07:17:39.846656+00:00", "Venus", "Jupiter", "hora+sub"], ["2026-10-16T10:25:05.696568+00:00", "2026-10-16T11:22:08.346541+00:00", "Jupiter", null, "day+hora"], ["2026-10-16T10:49:32.546556+00:00", "2026-10-16T10:57:41.496552+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-16T14:04:08.472489+00:00", "2026-10-16T14:13:08.479486+00:00", "Venus", "Jupiter", "hora+sub"], ["2026-10-16T17:40:08.640421+00:00", "2026-10-16T18:43:08.689401+00:00", "Jupiter", null, "day+hora"], ["2026-10-16T18:07:08.661412+00:00", "2026-10-16T18:16:08.668409+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-16T21:25:08.815349+00:00", "2026-10-16T21:34:08.822346+00:00", "Venus", "Jupiter", "hora+sub"]], "Construction (Mercury + Mars)": [["2026-10-16T01:27:14.996822+00:00", "2026-10-16T01:35:23.946818+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-16T05:07:16.646718+00:00", "2026-10-16T05:15:25.596714+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-16T08:06:33.546633+00:00", "2026-10-16T08:14:42.496629+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-16T11:49:08.367532+00:00", "2026-10-16T11:58:08.374529+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-16T15:07:08.521469+00:00", "2026-10-16T15:16:08.528466+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-16T19:10:08.710392+00:00", "2026-10-16T19:19:08.717389+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-16T22:28:08.864329+00:00", "2026-10-16T22:37:08.871326+00:00", "Mercury", "Mars", "hora+sub"]], "Avoid signing / negotiating (Saturn + Mercury)": [["2026-10-16T01:10:57.096830+00:00", "2026-10-16T01:19:06.046826+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-16T03:29:29.246764+00:00", "2026-10-16T03:37:38.196760+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-16T07:50:15.646641+00:00", "2026-10-16T07:58:24.596637+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-16T10:08:47.796575+00:00", "2026-10-16T10:16:56.746571+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-16T14:49:08.507475+00:00", "2026-10-16T14:58:08.514472+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-16T17:22:08.626426+00:00", "2026-10-16T17:31:08.633423+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-16T22:10:08.850335+00:00", "2026-10-16T22:19:08.857332+00:00", "Mercury", "Saturn", "hora+sub"]]}}, "2026-10-21": {"day_lord": "Mercury", "pair": ["Rahu", "Ketu"], "horas": [["2026-10-21T00:00:22.603659+00:00", "2026-10-21T00:56:48.098070+00:00", "Mercury", false], ["2026-10-21T00:56:48.098070+00:00", "2026-10-21T01:53:13.592481+00:00", "Moon", false], ["2026-10-21T01:53:13.592481+00:00", "2026-10-21T02:49:39.086892+00:00", "Saturn", false], ["2026-10-21T02:49:39.086892+00:00", "2026-10-21T03:46:04.581303+00:00", "Jupiter", false], ["2026-10-21T03:46:04.581303+00:00", "2026-10-21T04:42:30.075714+00:00", "Mars", false], ["2026-10-21T04:42:30.075714+00:00", "2026-10-21T05:38:55.570125+00:00", "Sun", false], ["2026-10-21T05:38:55.570125+00:00", "2026-10-21T06:35:21.064536+00:00", "Venus", false], ["2026-10-21T06:35:21.064536+00:00", "2026-10-21T07:31:46.558947+00:00", "Mercury", false], ["2026-10-21T07:31:46.558947+00:00", "2026-10-21T08:28:12.053358+00:00", "Moon", false], ["2026-10-21T08:28:12.053358+00:00", "2026-10-21T09:24:37.547769+00:00", "Saturn", false], ["2026-10-21T09:24:37.547769+00:00", "2026-10-21T10:21:03.042180+00:00", "Jupiter", false], ["2026-10-21T10:21:03.042180+00:00", "2026-10-21T11:17:28.536591+00:00", "Mars", false], ["2026-10-21T11:17:28.536591+00:00", "2026-10-21T12:21:05.914940+00:00", "Sun", true], ["2026-10-21T12:21:05.914940+00:00", "2026-10-21T13:24:43.293289+00:00", "Venus", true], ["2026-10-21T13:24:43.293289+00:00", "2026-10-21T14:28:20.671638+00:00", "Mercury", true], ["2026-10-21T14:28:20.671638+00:00", "2026-10-21T15:31:58.049987+00:00", "Moon", true], ["2026-10-21T15:31:58.049987+00:00", "2026-10-21T16:35:35.428336+00:00", "Saturn", true], ["2026-10-21T16:35:35.428336+00:00", "2026-10-21T17:39:12.806685+00:00", "Jupiter", true], ["2026-10-21T17:39:12.806685+00:00", "2026-10-21T18:42:50.185034+00:00", "Mars", true], ["2026-10-21T18:42:50.185034+00:00", "2026-10-21T19:46:27.563383+00:00", "Sun", true], ["2026-10-21T19:46:27.563383+00:00", "2026-10-21T20:50:04.941732+00:00", "Venus", true], ["2026-10-21T20:50:04.941732+00:00", "2026-10-21T21:53:42.320081+00:00", "Mercury", true], ["2026-10-21T21:53:42.320081+00:00", "2026-10-21T22:57:19.698430+00:00", "Moon", true], ["2026-10-21T22:57:19.698430+00:00", "2026-10-22T00:00:57.076778+00:00", "Saturn", true]], "dasha_pins": [], "muhurta": {"Marriage (Venus + Jupiter)": [["2026-10-21T03:13:50.013069+00:00", "2026-10-21T03:21:53.655128+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-21T06:11:10.138361+00:00", "2026-10-21T06:19:13.780420+00:00", "Venus", "Jupiter", "hora+sub"], ["2026-10-21T09:48:48.473946+00:00", "2026-10-21T09:56:52.116005+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-21T12:57:27.273996+00:00", "2026-10-21T13:06:32.613760+00:00", "Venus", "Jupiter", "hora+sub"], ["2026-10-21T17:02:51.447628+00:00", "2026-10-21T17:11:56.787392+00:00", "Jupiter", "Venus", "hora+sub"], ["2026-10-21T20:22:48.922439+00:00", "2026-10-21T20:31:54.262203+00:00", "Venus", "Jupiter", "hora+sub"]], "Construction (Mercury + Mars)": [["2026-10-21T00:32:37.171895+00:00", "2026-10-21T00:40:40.813954+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-21T03:46:04.581303+00:00", "2026-10-21T04:42:30.075714+00:00", "Mars", null, "day+hora"], ["2026-10-21T04:10:15.507480+00:00", "2026-10-21T04:18:19.149539+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-21T07:07:35.632772+00:00", "2026-10-21T07:15:39.274831+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-21T10:21:03.042180+00:00", "2026-10-21T11:17:28.536591+00:00", "Mars", null, "day+hora"], ["2026-10-21T10:45:13.968357+00:00", "2026-10-21T10:53:17.610416+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-21T14:01:04.652345+00:00", "2026-10-21T14:10:09.992109+00:00", "Mercury", "Mars", "hora+sub"], ["2026-10-21T17:39:12.806685+00:00", "2026-10-21T18:42:50.185034+00:00", "Mars", null, "day+hora"], ["2026-10-21T18:06:28.825977+00:00", "2026-10-21T18:15:34.165741+00:00", "Mars", "Mercury", "hora+sub"], ["2026-10-21T21:26:26.300788+00:00", "2026-10-21T21:35:31.640552+00:00", "Mercury", "Mars", "hora+sub"]], "Avoid signing / negotiating (Saturn + Mercury)": [["2026-10-21T00:16:29.887777+00:00", "2026-10-21T00:24:33.529836+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-21T01:53:13.592481+00:00", "2026-10-21T02:49:39.086892+00:00", "Saturn", null, "day+hora"], ["2026-10-21T02:33:31.802776+00:00", "2026-10-21T02:41:35.444835+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-21T06:51:28.348654+00:00", "2026-10-21T06:59:31.990713+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-21T08:28:12.053358+00:00", "2026-10-21T09:24:37.547769+00:00", "Saturn", null, "day+hora"], ["2026-10-21T09:08:30.263653+00:00", "2026-10-21T09:16:33.905712+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-21T13:42:53.972817+00:00", "2026-10-21T13:51:59.312581+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-21T15:31:58.049987+00:00", "2026-10-21T16:35:35.428336+00:00", "Saturn", null, "day+hora"], ["2026-10-21T16:17:24.748807+00:00", "2026-10-21T16:26:30.088571+00:00", "Saturn", "Mercury", "hora+sub"], ["2026-10-21T21:08:15.621260+00:00", "2026-10-21T21:17:20.961024+00:00", "Mercury", "Saturn", "hora+sub"], ["2026-10-21T22:57:19.698430+00:00", "2026-10-22T00:00:57.076778+00:00", "Saturn", null, "day+hora"], ["2026-10-21T23:42:46.397250+00:00", "2026-10-21T23:51:51.737014+00:00", "Saturn", "Mercury", "hora+sub"]]}}}, "birth_tol": {"H1": {"sub": "Mercury", "before": 8, "after": 1}, "H2": {"sub": "Mercury", "before": 6, "after": 3}, "H3": {"sub": "Venus", "before": 1, "after": 9}, "H4": {"sub": "Mars", "before": 1, "after": 3}, "H5": {"sub": "Venus", "before": 3, "after": 6}, "H6": {"sub": "Venus", "before": 5, "after": 5}, "H7": {"sub": "Venus", "before": 5, "after": 6}, "H8": {"sub": "Mercury", "before": 6, "after": 4}, "H9": {"sub": "Mercury", "before": 7, "after": 2}, "H10": {"sub": "Sun", "before": 1, "after": 3}, "H11": {"sub": "Venus", "before": 7, "after": 2}, "H12": {"sub": "Moon", "before": 2, "after": 3}, "Sun": {"sub": "Mercury", "before": null, "after": null}, "Moon": {"sub": "Rahu", "before": null, "after": null}, "Mars": {"sub": "Saturn", "before": null, "after": null}, "Mercury": {"sub": "Sun", "before": null, "after": null}, "Jupiter": {"sub": "Rahu", "before": null, "after": null}, "Venus": {"sub": "Moon", "before": null, "after": null}, "Saturn": {"sub": "Saturn", "before": null, "after": null}, "Rahu": {"sub": "Mercury", "before": null, "after": null}, "Ketu": {"sub": "Mercury", "before": null, "after": null}}}
+diff --git a/tools/reference/kp_hora.py b/tools/reference/kp_hora.py
+new file mode 100644
+index 0000000..d111987
+--- /dev/null
++++ b/tools/reference/kp_hora.py
+@@ -0,0 +1,79 @@
++"""kp_hora.py - planetary hours (hora), Reader 3 ~l.30440-30580. Mirrors engine/KpHora.kt.
++Sunrise->noon /6 (l.30447, 30480-30495); order Sun, Venus, Mercury, Moon, Saturn, Jupiter, Mars from the day lord;
++7 equal sub-horas starting with the hora lord (l.30519-30525); pair rule l.30558-30566.
++ASSUMPTION: afternoon/night continue the same 12+12 cycle (the book only worked the forenoon)."""
++from __future__ import annotations
++from datetime import datetime, timedelta, timezone
++import swisseph as swe
++import kp_core as kp, kp_daily as kd
++
++HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"]
++MUHURTA_PAIRS = {"Marriage (Venus + Jupiter)": ("Venus", "Jupiter"),
++                 "Construction (Mercury + Mars)": ("Mercury", "Mars"),
++                 "Avoid signing / negotiating (Saturn + Mercury)": ("Saturn", "Mercury")}
++
++
++def lord_after(lord: str, steps: int) -> str:
++    return HORA_ORDER[(HORA_ORDER.index(lord) + steps) % 7]
++
++
++def _noon_utc(rise: datetime, lat: float, lon: float) -> datetime:
++    rise = rise.replace(second=0, microsecond=0)
++    jd = swe.julday(rise.year, rise.month, rise.day, rise.hour + rise.minute / 60)
++    res, tret = swe.rise_trans(jd, swe.SUN, swe.CALC_MTRANSIT, (lon, lat, 0.0), 0.0, 0.0, swe.FLG_MOSEPH)
++    if res < 0:
++        return rise + timedelta(hours=6)
++    y, m, d, h = swe.revjul(tret[0])
++    return datetime(y, m, d, tzinfo=timezone.utc) + timedelta(hours=h)
++
++
++def hora_day(d0: datetime, lat: float, lon: float) -> list[dict]:
++    """24 horas starting at the sunrise of local calendar day d0 (tz-aware local midnight)."""
++    rise = kd._sunrise_utc(d0, lat, lon)
++    next_rise = kd._sunrise_utc(d0 + timedelta(days=1), lat, lon)
++    noon = _noon_utc(rise, lat, lon)
++    day_len = (noon - rise) * 2
++    sset = rise + day_len
++    day_h, night_h = day_len / 12, (next_rise - sset) / 12
++    day_lord = kp.WEEKDAY_LORD[d0.weekday()]
++    out = []
++    for i in range(24):
++        night = i >= 12
++        s = rise + day_h * i if not night else sset + night_h * (i - 12)
++        e = next_rise if i == 23 else (rise + day_h * (i + 1) if not night else sset + night_h * (i - 11))
++        out.append({"start": s, "end": e, "lord": lord_after(day_lord, i), "night": night})
++    return out
++
++
++def hora_subs(h: dict) -> list[dict]:
++    n = (h["end"] - h["start"]) / 7
++    return [{"start": h["start"] + n * j, "end": h["end"] if j == 6 else h["start"] + n * (j + 1), "lord": lord_after(h["lord"], j)} for j in range(7)]
++
++
++def pair_windows(horas: list[dict], day_lord: str, a: str, b: str) -> list[dict]:
++    want, out = {a, b}, []
++    for h in horas:
++        if h["lord"] != day_lord and {day_lord, h["lord"]} == want:
++            out.append({"start": h["start"], "end": h["end"], "hora": h["lord"], "sub": None, "kind": "day+hora"})
++        elif h["lord"] == day_lord and a == b == h["lord"]:
++            out.append({"start": h["start"], "end": h["end"], "hora": h["lord"], "sub": None, "kind": "day+hora"})
++        for s in hora_subs(h):
++            if s["lord"] != h["lord"] and {h["lord"], s["lord"]} == want:
++                out.append({"start": s["start"], "end": s["end"], "hora": h["lord"], "sub": s["lord"], "kind": "hora+sub"})
++    return sorted(out, key=lambda x: x["start"])
++
++
++def hora_report(ctx, d0: datetime) -> dict:
++    horas = hora_day(d0, ctx.lat, ctx.lon); day_lord = kp.WEEKDAY_LORD[d0.weekday()]
++    chain = kd.chain_at(ctx.mds, (d0 + timedelta(hours=12)).astimezone(timezone.utc), 2)
++    pair = tuple(chain)
++    return {"day_lord": day_lord, "horas": horas, "dasha_pair": pair,
++            "dasha_pins": pair_windows(horas, day_lord, *pair),
++            "muhurta": {k: pair_windows(horas, day_lord, *v) for k, v in MUHURTA_PAIRS.items()}}
++
++
++if __name__ == "__main__":
++    from zoneinfo import ZoneInfo
++    d0 = datetime(2026, 10, 21, tzinfo=ZoneInfo("Asia/Kolkata"))   # a Wednesday
++    for h in hora_day(d0, 26.4446, 91.4373)[:4]:
++        print(h["lord"], h["start"].astimezone(d0.tzinfo).strftime("%H:%M"), h["end"].astimezone(d0.tzinfo).strftime("%H:%M"))
+diff --git a/tools/reference/rules.json b/tools/reference/rules.json
+index ff9dd1b..48a5aed 100644
+--- a/tools/reference/rules.json
++++ b/tools/reference/rules.json
+@@ -1,49 +1,492 @@
+ {
+-  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference.",
++  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference. Added from Readers 3/4 Q&A chapters (see per-event source).",
+   "marriage": {
+-    "cusp": 7, "primary": 7, "support": [2, 7, 11], "denial": [1, 6, 10, 12],
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      7,
++      11
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
+     "status": "verified",
+     "source": "Reader 4 ~l.7160-7168: sub-lord connected with 2,7,11 useful; sub of 1,6,10 and signifier of 12 -> marriage cannot take place; ruling planets at moment of judgement must agree"
+   },
+   "childbirth": {
+-    "cusp": 5, "primary": 5, "support": [2, 5, 11], "denial": [1, 4, 10],
+-    "status": "partial",
+-    "source": "Reader 4 ~l.13229: examine 2,5,11 and strength of Jupiter. l.12850: 11th sub-lord for male child, 5th for female. Denial group 1,4,10 not yet found in text."
++    "cusp": 5,
++    "primary": 5,
++    "support": [
++      2,
++      5,
++      11
++    ],
++    "denial": [
++      1,
++      4,
++      10
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25783-25790: sub-lord of 5th cusp signifying 2, 5 or 11 -> child; signifying 1, 4 or 10 -> never a child (1,4,10 are 12th from 2,5,11). Reader 4 ~l.12836: 5, 11 or Jupiter; l.12850: 11th sub-lord male child, 5th female."
+   },
+   "job": {
+-    "cusp": 10, "primary": 10, "support": [2, 6, 10, 11], "denial": [1, 5, 9],
++    "cusp": 10,
++    "primary": 10,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      1,
++      5,
++      9
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.11964: houses 2,6,10 indicate service; 12th from these (1,5,9) end of service. 11 added for gain (l.11157, l.12938)."
+   },
+   "retirement": {
+-    "cusp": 9, "primary": 9, "support": [1, 5, 9], "denial": [2, 6, 10],
++    "cusp": 9,
++    "primary": 9,
++    "support": [
++      1,
++      5,
++      9
++    ],
++    "denial": [
++      2,
++      6,
++      10
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.11964: 1,5,9 show end of service or retirement."
+   },
+   "higher_education": {
+-    "cusp": 9, "primary": 4, "support": [4, 9, 11], "denial": [3, 5, 8],
++    "cusp": 9,
++    "primary": 4,
++    "support": [
++      4,
++      9,
++      11
++    ],
++    "denial": [
++      3,
++      5,
++      8
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.16004-16012: education successful if lords of 4 and 9 are in sub of significator of 11; education ends in periods connected with 3, 5 or 8. Regular college: judge 4 and 11 (l.19160)."
+   },
+   "study_abroad": {
+-    "cusp": 9, "primary": 12, "support": [9, 11, 12], "denial": [3, 5, 8],
++    "cusp": 9,
++    "primary": 12,
++    "support": [
++      9,
++      11,
++      12
++    ],
++    "denial": [
++      3,
++      5,
++      8
++    ],
+     "status": "partial",
+     "source": "Reader 3 ~l.19160-19170: research / hostel / leaving native place: judge 9 and 12; 11th significator should also signify 9 or 12 or both. l.19020: stay abroad judged from 12th, for job 6 and 10. Denial group assumed from education rule."
+   },
+   "foreign_travel": {
+-    "cusp": 12, "primary": 12, "support": [9, 12], "denial": [2, 4, 11],
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      4,
++      11
++    ],
+     "status": "partial",
+     "source": "Reader 3 ~l.3311, 3594: 9 and 12 indicate overseas; stay in foreign country from 12th. Denial 2,4,11 (stay-at-home houses) is common teaching, not found yet."
+   },
+   "property_purchase": {
+-    "cusp": 4, "primary": 4, "support": [4, 11, 12], "denial": [3, 5, 10],
+-    "alt_support": [2, 4, 11],
++    "cusp": 4,
++    "primary": 4,
++    "support": [
++      4,
++      11,
++      12
++    ],
++    "denial": [
++      3,
++      5,
++      10
++    ],
++    "alt_support": [
++      2,
++      4,
++      11
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.14535-14548: purchase = 4 (building), 11 (gain), 12 (payment). l.14643-14650: acquisition 2,4,11; disposal 3,5,10. Two variants in the book, 2,4,11 is the later research (after 1967)."
+   },
+   "property_sale": {
+-    "cusp": 4, "primary": 3, "support": [3, 5, 10], "denial": [2, 4, 11],
++    "cusp": 4,
++    "primary": 3,
++    "support": [
++      3,
++      5,
++      10
++    ],
++    "denial": [
++      2,
++      4,
++      11
++    ],
+     "status": "verified",
+     "source": "Reader 3 ~l.14643-14650: disposal of a house is judged from 3, 5, 10; acquisition 2,4,11 is the opposite group."
++  },
++  "engagement": {
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      3,
++      7,
++      9,
++      11
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25463-25470: 2,7,11 give marriage; if also 3 (own agreement) and 9 (other party's consent) the marriage is engaged. Denial from R4 ~l.7160."
++  },
++  "separation": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "denial": [
++      2,
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 4 ~l.8972-8985: separation from partner judged from 1,6,10,12; ~l.4205-4212: if the same planet also signifies 2,7,11 the quarrel is brief and they reunite."
++  },
++  "divorce": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      1,
++      6,
++      10
++    ],
++    "denial": [
++      2,
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 4 ~l.9477: divorce is seen from houses 1, 6 and 10 (6 is 12th from 7); Mars/Jupiter-in-Mars-star adds litigation (~l.9480-9490)."
++  },
++  "second_marriage": {
++    "cusp": 2,
++    "primary": 7,
++    "support": [
++      2,
++      7
++    ],
++    "denial": [
++      1,
++      6,
++      10,
++      12
++    ],
++    "status": "partial",
++    "source": "Reader 4 ~l.9010-9015, 5108: 2nd cusp is second marriage; sub-lord connected with 7 -> second marriage, with 11 -> only a live-in attachment. Plurality: 7th cusp sub-lord in a dual sign (~l.8905). Denial group borrowed from marriage."
++  },
++  "partnership_new": {
++    "cusp": 7,
++    "primary": 7,
++    "support": [
++      2,
++      7,
++      10,
++      11
++    ],
++    "denial": [
++      6,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25622-25630: new partner when significator of 7 also signifies 11, and 11 connects with 2 or 10."
++  },
++  "partnership_end": {
++    "cusp": 7,
++    "primary": 6,
++    "support": [
++      6,
++      12
++    ],
++    "denial": [
++      7,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25604-25621: significator of 7 also of 6 -> partner leaves; also of 12 -> you sever the connection."
++  },
++  "first_salary": {
++    "cusp": 2,
++    "primary": 2,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      1,
++      5,
++      9
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22345-22420: 2 receipt of money, 6 dues from service, 10 profession, 11 gain; 12th from these (1,5,9) end of income."
++  },
++  "reinstatement": {
++    "cusp": 10,
++    "primary": 10,
++    "support": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "denial": [
++      5,
++      9,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22569-22640: judge 2,6,10,11; suspension is shown by 5,9,12 (l.22517)."
++  },
++  "suspension": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      5,
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      6,
++      10,
++      11
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.22517 and l.25510-25518: 5,9 with 12 -> suspension; 10 with 12 -> inquiry/exposure."
++  },
++  "termination_of_service": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      1,
++      5,
++      9,
++      12
++    ],
++    "denial": [
++      2,
++      6,
++      10
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.23140-23145: termination judged from 1,5,9 and 12 (1 negates 2)."
++  },
++  "transfer": {
++    "cusp": 9,
++    "primary": 12,
++    "support": [
++      3,
++      9,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.22861-22870: for transfer consider 3, 9 and 12 (for a spouse count them from the 7th)."
++  },
++  "deputation_with_gain": {
++    "cusp": 9,
++    "primary": 11,
++    "support": [
++      5,
++      9,
++      11,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25471-25478: houses 5, 9, 11 judged; the 11th significator should also signify 12 (service in a new place)."
++  },
++  "selection_for_post": {
++    "cusp": 11,
++    "primary": 11,
++    "support": [
++      3,
++      11
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25479-25490: news of selection when significator of 11 also signifies 3; actual promotion in the combined period of 2/6/10 and 11."
++  },
++  "loan_borrowing": {
++    "cusp": 6,
++    "primary": 6,
++    "support": [
++      2,
++      6
++    ],
++    "denial": [
++      8,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.13157-13160, 9063: conjoined period of significators of 2 and 6 -> borrowing; sub of 8 or 12 -> repaying or lending."
++  },
++  "loan_repayment": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      8,
++      12
++    ],
++    "denial": [
++      2,
++      6
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25730-25738: significators of 8 and 12 show repayment or lending; discharge of a loan is judged from 12 (l.13175)."
++  },
++  "windfall_gain": {
++    "cusp": 8,
++    "primary": 8,
++    "support": [
++      6,
++      8,
++      11
++    ],
++    "denial": [
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25735-25738: significator of 8 also of 6 and 11 -> money received; of 8 and 12 -> you pay out."
++  },
++  "speculation_gain": {
++    "cusp": 5,
++    "primary": 5,
++    "support": [
++      5,
++      6,
++      11
++    ],
++    "denial": [
++      8,
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25776-25781: 5 gives the opportunity, with 6 and 11 you gain, with 8 and 12 you lose."
++  },
++  "imprisonment": {
++    "cusp": 12,
++    "primary": 12,
++    "support": [
++      3,
++      8,
++      12
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25740-25750 and l.24615-24640: 3, 8, 12 for imprisonment; confinement in one's own house 4, 8, 12."
++  },
++  "accident_on_journey": {
++    "cusp": 3,
++    "primary": 3,
++    "support": [
++      3,
++      6,
++      8,
++      9
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.25632-25640: significator of 3 (short) or 9 (long journey) that also signifies 6 and 8 -> accident; also 12 -> hospitalisation."
++  },
++  "phd_thesis": {
++    "cusp": 9,
++    "primary": 9,
++    "support": [
++      4,
++      9,
++      11
++    ],
++    "denial": [
++      12
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25752-25760: thesis in combined period of 4 and 9; 9 also signifying 11 -> doctorate; 9 with 12 -> failure."
++  },
++  "vehicle_purchase": {
++    "cusp": 4,
++    "primary": 4,
++    "support": [
++      4,
++      9,
++      10,
++      11
++    ],
++    "denial": [],
++    "status": "verified",
++    "source": "Reader 3 ~l.14946: conveyance is the 4th house; 4, 9, 10 and 11 are examined."
++  },
++  "tenant_arrival": {
++    "cusp": 6,
++    "primary": 6,
++    "support": [
++      4,
++      6,
++      9
++    ],
++    "denial": [
++      8
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25653-25660: tenant is the 6th; significators of 6, 9 and 4 (4th from 6 = 9th) together bring a tenant; 8th (3rd from 6) takes him away."
++  },
++  "tenant_vacate": {
++    "cusp": 6,
++    "primary": 8,
++    "support": [
++      6,
++      8
++    ],
++    "denial": [
++      4,
++      9
++    ],
++    "status": "verified",
++    "source": "Reader 3 ~l.25641-25652: tenant leaves in the combined period of significators of 6 and 8."
+   }
+-}
++}
+\ No newline at end of file
+-- 
+2.43.0
+
