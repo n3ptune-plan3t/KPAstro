@@ -34,6 +34,10 @@ fun LifeScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
     val l = life; val c = ctx; val sp = span
     if (l == null || c == null || sp == null) { Loading("Scanning dasha periods from birth to the next mahadasha…"); return }
     val now = remember { Instant.now() }
+    val ranked = remember(l, now) { rankedEvents(l, c.chart) }
+    val top = ranked.take(3).sortedBy { bestWindow(it, c.chart)?.start ?: Instant.MAX }
+    val topKeys = top.map { it.rule.key }.toSet()
+    var showAll by remember { mutableStateOf(false) }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(Modifier.statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -42,17 +46,71 @@ fun LifeScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        items(l, key = { it.rule.key }) {
-            EventCard(it, c.zone, now, timings[it.rule.key], busy = it.rule.key in timingBusy) { vm.loadEventTiming(it.rule.key) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Top 3 time ranges", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("One best window per event, ranked by the A > B > C > D strength of the running lords (Reader 3 ~l.19169-19175); parent events must be promised and active.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (top.isEmpty()) {
+            item { Text("No event is promised with an active dasha window in this span.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        items(top, key = { "top-${it.rule.key}" }) {
+            EventCard(it, c.zone, now, timings[it.rule.key], busy = it.rule.key in timingBusy,
+                only = bestWindow(it, c.chart), why = true) { vm.loadEventTiming(it.rule.key) }
+        }
+        item {
+            Text(if (showAll) "Hide other events" else "Show all ${l.size} events",
+                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { showAll = !showAll }.padding(vertical = 4.dp))
+        }
+        if (showAll) {
+            items(l.filter { it.rule.key !in topKeys }, key = { it.rule.key }) {
+                EventCard(it, c.zone, now, timings[it.rule.key], busy = it.rule.key in timingBusy) { vm.loadEventTiming(it.rule.key) }
+            }
         }
         item { Text(DISCLAIMER, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp)) }
     }
 }
 
+// Reader 3 ~l.19169-19175: A (planets in an occupant's star) > B (occupant) > C (planets in the
+// owner's star) > D (house owner). The ranking below uses that order, then promise verdict and timing.
+private fun sigRank(ch: Chart, lord: String, house: Int): Int {
+    val s = ch.significators[house] ?: return 0
+    return when {
+        lord in s.a -> 4
+        lord in s.b -> 3
+        lord in s.c -> 2
+        lord in s.d -> 1
+        else -> 0
+    }
+}
+
+private fun bestWindow(e: EventReport, ch: Chart): DashaWindow? {
+    val live = e.windows.filter { it.parentActive || e.rule.dependsOn.isEmpty() }
+    val pool = if (live.isNotEmpty()) live else e.windows
+    val adult = ch.dtUtc.plusSeconds((18L * 365L * 86400L))
+    return pool.firstOrNull { !it.end.isBefore(adult) } ?: pool.lastOrNull()
+}
+
+private fun rankedEvents(all: List<EventReport>, ch: Chart): List<EventReport> {
+    fun eligible(e: EventReport) =
+        e.promise.verdict in setOf("strong", "promised") && e.windows.isNotEmpty() &&
+            e.parents.all { it.promised } &&
+            (e.rule.dependsOn.isEmpty() || e.windows.any { it.parentActive })
+    return all.filter(::eligible).sortedWith(
+        compareByDescending<EventReport> { e ->
+            val w = bestWindow(e, ch)
+            if (w == null) 0 else w.lords.maxOfOrNull { chain -> chain.sumOf { sigRank(ch, it, e.rule.primary) } } ?: 0
+        }.thenBy { bestWindow(it, ch)?.start ?: Instant.MAX }
+    )
+}
+
 private fun verdictColor(v: String) = when (v) { "strong", "promised" -> KpColors.Good; "mixed" -> KpColors.Gold; else -> KpColors.Bad }
 
 @Composable
-private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean, onLoad: () -> Unit) {
+private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean, only: DashaWindow? = null, why: Boolean = false, onLoad: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     LaunchedEffect(open, e.rule.key) { if (open) onLoad() }
     KpCard(Modifier.clickable { open = !open }) {
@@ -67,6 +125,9 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
         Text("Cusp ${e.rule.cusp} · sub-lord ${e.promise.cuspSubLord}" +
             if (e.rule.status != "verified") " · ${e.rule.status}" else "",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (why && e.rule.plain.isNotBlank()) {
+            Text(e.rule.plain, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         if (e.parents.isNotEmpty()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 e.parents.forEach { p -> Pill("after ${p.key.replace('_', ' ')}", if (p.promised) KpColors.Gold else KpColors.Bad) }
@@ -79,7 +140,8 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
                  else "Windows are only scanned when the promise is strong or promised.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        e.windows.take(if (open) 50 else 3).forEach { w ->
+        val shown = if (only != null) listOf(only) else e.windows.take(if (open) 50 else 3)
+        shown.forEach { w ->
             Text(MONTH.format(w.start.atZone(zone)) + " → " + MONTH.format(w.end.atZone(zone)) +
                 (if (w.end.isBefore(now)) "  · past" else if (w.start.isBefore(now)) "  · running now" else "") +
                 (if (w.parents.isNotEmpty()) "  · after " + w.parents.joinToString("/") { it.replace('_', ' ') }
@@ -88,7 +150,7 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
             if (open) Text(w.lords.joinToString(", ") { it.joinToString("–") },
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (e.windows.size > 3 && !open) Text("+${e.windows.size - 3} more · tap to expand", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        if (only == null && e.windows.size > 3 && !open) Text("+${e.windows.size - 3} more · tap to expand", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (open) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
             ExactTiming(e, zone, now, timing, busy)
@@ -98,6 +160,7 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
                 Text(e.rule.plain, style = MaterialTheme.typography.bodyMedium)
             }
             Text("Support houses ${e.rule.support}" +
+                (if (e.rule.anySupport.isNotEmpty()) " · any of ${e.rule.anySupport}" else "") +
                 (if (e.rule.altSupport.isNotEmpty()) " · variant ${e.rule.altSupport}" else "") +
                 " · denial houses ${e.rule.denial}",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

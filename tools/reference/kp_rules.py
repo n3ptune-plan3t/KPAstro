@@ -27,12 +27,25 @@ def _houses(ch: kp.Chart, planet: str) -> set[int]:
 
 
 # ------------------------------------------------------------------ 1. promise
+def _group(rule: dict) -> set[int]:
+    return set(rule["support"]) | set(rule.get("any_support", []))
+
+
 def promise(ch: kp.Chart, rule: dict) -> dict:
     csl = ch.cusps[rule["cusp"] - 1].sub_lord
     hs = _houses(ch, csl)
-    sup = sorted(hs & set(rule["support"]))
+    sup = sorted(hs & _group(rule))
     den = sorted(hs & set(rule["denial"]))
-    if len(sup) == len(rule["support"]) and not den:
+    if rule.get("any_support"):
+        if not sup:
+            verdict = "denied"
+        elif not den:
+            verdict = "strong"
+        elif len(sup) > len(den):
+            verdict = "promised"
+        else:
+            verdict = "mixed"
+    elif len(sup) == len(rule["support"]) and not den:
         verdict = "strong"
     elif len(sup) >= 2 and len(sup) > len(den):
         verdict = "promised"
@@ -46,19 +59,21 @@ def promise(ch: kp.Chart, rule: dict) -> dict:
 # ------------------------------------------------------------------ 2. timing
 def lord_check(ch: kp.Chart, planet: str, rule: dict) -> dict:
     hs = _houses(ch, planet)
-    sup, den = sorted(hs & set(rule["support"])), sorted(hs & set(rule["denial"]))
+    group = _group(rule)
+    sup, den = sorted(hs & group), sorted(hs & set(rule["denial"]))
     sub = ch.planets[planet].sub_lord
     shs = _houses(ch, sub)
-    permission = len(shs & set(rule["denial"])) <= len(shs & set(rule["support"]))
+    permission = len(shs & set(rule["denial"])) <= len(shs & group)
     return {"planet": planet, "support": sup, "denial": den, "sub_lord": sub, "permission": permission}
 
 
 def period_check(ch: kp.Chart, rule: dict, lords: tuple[str, ...]) -> tuple[bool, list[dict]]:
     det = [lord_check(ch, l, rule) for l in lords]
     union = set().union(*[set(d["support"]) for d in det])
+    need = 1 if rule.get("any_support") else min(2, len(rule["support"]))
     ok = (all(d["support"] and d["permission"] for d in det)
           and rule["primary"] in (union | set().union(*[_houses(ch, l) for l in lords]))
-          and len(union) >= min(2, len(rule["support"])))
+          and len(union) >= need)
     return ok, det
 
 

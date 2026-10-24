@@ -1,5 +1,5 @@
 {
-  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. alt_support = a variant group printed in the Readers, kept for reference but not used by the promise check. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference. depends_on lists parent event keys: it is a soft gate, so a child window is only flagged (never dropped) when it falls inside a parent event's window; citation in depends_on_source.",
+  "_meta": "Editable KP event rules. cusp = house whose sub-lord judges the event; primary = house a running dasha lord should signify; support/denial = house groups. any_support = a house group where any one match is enough (used for income and degree). alt_support = a variant group printed in the Readers, kept for reference but not used by the promise check. status: verified = confirmed in the uploaded Readers (line refs are to the OCR txt files); partial = part verified; unverified = common teaching, not yet found in the Readers. Never change a verified group without a Reader reference. depends_on lists parent event keys: it is a soft gate, so a child window is only flagged (never dropped) when it falls inside a parent event's window; citation in depends_on_source.",
   "marriage": {
     "cusp": 7,
     "primary": 7,
@@ -56,6 +56,81 @@
     "status": "verified",
     "source": "Reader 3 ~l.11964-11965: houses 2,6,10 indicate service; the 12th from these (1,5,9) show end of service or retirement. 11 added for gain: Reader 3 ~l.12938 (income/debt cleared through 2,6,10,11).",
     "plain": "A job is judged from the 10th house. Houses 2 (income), 6 (service), 10 (profession) and 11 (gain) support it. Houses 1, 5 and 9 point towards leaving or ending a job."
+  },
+  "first_job": {
+    "cusp": 10,
+    "primary": 10,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      1,
+      5,
+      9
+    ],
+    "status": "verified",
+    "source": "Reader 3 ~l.11964-11965: houses 2,6,10 indicate service; the 12th from these (1,5,9) show end of service. Reader 6 ~l.18260-18262: 'To enter into service: the sub-lord of the sixth is to be deposited in the constellation of the planet signifying houses 10 and 11.' Reader 3 ~l.22345-22352: 2 receipt of money, 6 dues from service, 10 profession, 11 gain. The first job uses the same service promise (10th CSL) as job; its earliest matching dasha window is the first job.",
+    "plain": "The first job is judged like service: the 10th cusp sub-lord must link to 2 (income), 6 (service), 10 (profession) or 11 (gain), and not to 1, 5 or 9 (ending). The first matching period is the first job and the start of regular income."
+  },
+  "first_government_job": {
+    "cusp": 10,
+    "primary": 10,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      8
+    ],
+    "status": "verified",
+    "source": "KP-E-Zine (Jan2015-Oct2020) 'Getting a government job through SSC CGL 2018 exam quota?' ~l.727284-727310: if the 10th CSL signifies 2, 6, 10 or 11 and/or is connected with the Sun or Moon, without the 8th, a government job is promised; time it by the joint period of the significators of 2, 6, 10 or 11. KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95631-95695: 11th/6th/10th CSL as significator of 2/6/10/11; 5 or 9 makes a job temporary. The engine checks the house group; the Sun/Moon condition is stated in the plain rule but not separately gated.",
+    "plain": "A government job is judged from the 10th house. Its sub-lord must link to 2 (money), 6 (service), 10 (profession) or 11 (success), with no link to 8 (obstacles); the Sun or Moon as royal planets strengthens it. The joint period of those significators gives the job."
+  },
+  "banking_job": {
+    "cusp": 2,
+    "primary": 2,
+    "support": [
+      2,
+      6,
+      10,
+      11
+    ],
+    "denial": [
+      1,
+      5,
+      9
+    ],
+    "alt_support": [
+      8
+    ],
+    "status": "partial",
+    "source": "KP-E-Zine (Jan2015-Oct2020) 'Bank Employees and KP' ~l.156435-156516: the 2nd house shows a career in banking, investments and finance; the 6th is service, the 8th is the bank's/customers' money, the 10th is career and the 11th is gain. Jupiter denotes bankers, Mercury bank-related jobs; banking signs are Taurus, Gemini, Virgo, Sagittarius and Pisces. The worked charts time the job through 2/6/10/11 (l.157606-157647). The 8th is kept as alt_support because the article says it should especially be considered but does not make it a pass/fail gate.",
+    "plain": "A banking job is judged from the 2nd house (banking and finance), with 6 (service), 10 (career) and 11 (gain); the 8th (the bank's money) should also be examined. Jupiter and Mercury, and the banking signs Taurus, Gemini, Virgo, Sagittarius and Pisces, are the trade signatures. Houses 1, 5 and 9 show the income or service ending.",
+    "depends_on": [
+      "job"
+    ],
+    "depends_on_source": "A banking job is still service: Reader 3 ~l.11964-11965 (2, 6, 10 = service)."
+  },
+  "first_private_job": {
+    "cusp": 10,
+    "primary": 10,
+    "support": [
+      6,
+      7
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95679-95681: 'If the 10th Sublord is significator of 6 house through Starlord and 7th house through Sublord it indicates private job. Venus is planet for private job as well as for business.'",
+    "plain": "A private job is shown when the 10th cusp sub-lord links 6 (service) and 7 (private employment/others); Venus strengthens it. The first matching period is the first private job.",
+    "depends_on": [
+      "job"
+    ],
+    "depends_on_source": "A private job is a job: Reader 3 ~l.11964-11965 (2, 6, 10 = service)."
   },
   "retirement": {
     "cusp": 9,
@@ -115,6 +190,34 @@
       "higher_education"
     ],
     "depends_on_source": "Reader 3 ~l.19020-19030: higher studies is indicated by the 9th house; stay in a foreign country by the 12th. Reader 3 ~l.19158-19166: leaving one's native place / hostel abroad / research-thesis -> judge 9 and 12. Overseas study is the foreign (12th) branch of higher study (9th), so higher_education is its parent."
+  },
+  "bachelor_degree": {
+    "cusp": 4,
+    "primary": 4,
+    "support": [],
+    "any_support": [
+      4,
+      9,
+      11
+    ],
+    "denial": [],
+    "status": "partial",
+    "source": "Jyotish Astro Secrets & KP Part5 ~l.3786-3843: graduate education is judged from the 4th house and its sub-lord; 4th CSL signifying 11 with 6 gives a competitive result; connected to 8 with 2/7/10/11 completes with obstacles; only 3 and 12 deny completion; 3 with 10 or 11 gives hostel study and completion; 3/9/12 without 4 or 10 gives a correspondence degree. The bachelor course table is at ~l.4026-4052. The engine accepts any of 4/9/11 because the article treats 4 as the base, 9 as higher study and 11 as success, while the 3/12 denial is conditional and cannot be encoded as a flat denial group.",
+    "plain": "A bachelor's degree is judged from the 4th cusp and its sub-lord. A link to 4 (college), 9 (higher study) or 11 (success) carries the degree; 11 with 6 gives a competitive result. Only 3 and 12 together deny completion, while 3 with 10 or 11 can still complete through hostel study."
+  },
+  "master_degree": {
+    "cusp": 9,
+    "primary": 9,
+    "support": [],
+    "any_support": [
+      4,
+      9,
+      11
+    ],
+    "denial": [],
+    "status": "partial",
+    "source": "Jyotish Astro Secrets & KP Part5 ~l.4474-4504: the 9th house denotes higher education and vocational training; 9th cusp sub-lord connected to 4, 9, 10 or 6 gives vocational training; 9 connected to 4 gives a regular post-graduate course; 9 connected to 3 gives post-graduation by correspondence. The engine uses 4/9/11 as the post-graduate group (college, higher study, success); the 3/6/10 variants are stated in the plain rule but not separately gated.",
+    "plain": "A master's degree is judged from the 9th cusp and its sub-lord. A link to 4 (regular college), 9 (higher study) or 11 (success) carries post-graduation; 9 with 4 is the regular PG route, while 3 with 9 is the correspondence route. The 9th also covers vocational and diploma courses."
   },
   "foreign_travel": {
     "cusp": 12,
@@ -296,8 +399,24 @@
       9
     ],
     "status": "verified",
-    "source": "Reader 3 ~l.22345-22420: 2 receipt of money, 6 dues from service, 10 profession, 11 gain; 12th from these (1,5,9) end of income.",
-    "plain": "Money received is house 2, service dues are 6, profession is 10, and gain is 11. Houses 1, 5 and 9 point to income ending."
+    "source": "Reader 3 ~l.22345-22420: 2 receipt of money, 6 dues from service, 10 profession, 11 gain; 12th from these (1,5,9) end of income. This is the first salary/first-income rule; a separate income window is not promised when the 2nd CSL also links 1 or 5.",
+    "plain": "First salary or first income is judged from the 2nd house. Money received is 2, service dues are 6, profession is 10, and gain is 11; houses 1, 5 and 9 point to income ending."
+  },
+  "regular_income": {
+    "cusp": 2,
+    "primary": 2,
+    "support": [],
+    "any_support": [
+      2,
+      6,
+      7,
+      10,
+      11
+    ],
+    "denial": [],
+    "status": "verified",
+    "source": "KP-E-Zine (Jan2015-Oct2020) Feb 2017 ~l.315600-315608 and (Jan2011-Dec2014) Feb 2019 ~l.542323-542334: 'If the 2nd cusp sublord signifies 2 (income) or 6 (service) or 7 (business) or 10 (profession) or 11 (fulfillment of desire), then the income is promised to the native.' The Readers do not fix a rupee amount. For level, KP-E-Zine (Jan2011-Dec2014) ~l.285084-285087 reads 12/1/9 together with 2/11 as low income and no stability, while a clean 2/11 gives steady income.",
+    "plain": "Regular income is promised when the 2nd cusp sub-lord links any of 2 (income), 6 (service), 7 (business), 10 (profession) or 11 (gain). The Readers do not fix a rupee amount: a clean 2/11 with strong 2nd/11th lords shows steady or high income, while 1/5/9/12 show leakage, low or unsteady income."
   },
   "reinstatement": {
     "cusp": 10,

@@ -280,3 +280,45 @@ No build, no install, no download (per the owner's instruction). Python was only
   - HANDOVER.md TODO 2 cites "Reader 3 ~l.20002-20004" for the three-level form; those lines are a
     house-signification chart ("Belt-7th house"), not the transit rule. Real sources are the two
     E-Zine passages quoted above.
+
+### Session 9 (2026-10-24): Top-3 life timeline + first job / government job
+
+No build and no install were run.
+
+- `rules.json` (both copies, kept identical): added `first_job` (10th CSL, 2/6/10/11, denial
+  1/5/9; Reader 3 ~l.11964-11965, Reader 6 ~l.18260-18262) and `first_government_job` (10th CSL,
+  2/6/10/11, denial 8; KP-E-Zine Jun 2020 ~l.727284-727310 and Jun 2021 ~l.95631-95695). The
+  existing `first_salary` now reads as first salary/first income (Reader 3 ~l.22345-22420).
+  Event count is 51. `golden.json` is unchanged by this but remains stale from Sessions 4/6.
+- `LifeScreen.kt`: the life list is now **Top 3 time ranges**, ranked by the Reader 3
+  ~l.19169-19175 A > B > C > D significator order of the running dasha lords; events whose
+  parent is not promised (or whose window falls outside the parent) are left out. Each top card
+  shows only its best window (one date range) and its `plain` rule ("why") while collapsed; the
+  three cards are displayed chronologically. The remaining events sit behind "Show all N events",
+  so the default timeline is short.
+- No engine, golden or daily-scoring change.
+
+### Session 10 (2026-10-24): banking, private job, degrees, regular income
+
+No build and no install were run. Work is on the `deepseek` branch.
+
+- `rules.json` (both copies, identical): event count is now 56. Added `banking_job`
+  (2nd CSL; 2/6/10/11 support, 1/5/9 denial, 8 alternative; KP-E-Zine Jan2015-Oct2020
+  ~l.156435-156516, ~l.157606-157647), `first_private_job` (10th CSL; 6/7; KP-E-Zine
+  Nov2020-Dec2021 ~l.95679-95681), `bachelor_degree` (4th CSL; any of 4/9/11; Jyotish
+  Astro Secrets & KP Part5 ~l.3786-3843, ~l.4026-4052), `master_degree` (9th CSL; any of
+  4/9/11; Part5 ~l.4474-4504) and `regular_income` (2nd CSL; any of 2/6/7/10/11;
+  KP-E-Zine Feb2017 ~l.315600-315608, Feb2019 ~l.542323-542334).
+- `KpRules.kt` and `tools/reference/kp_rules.py`: added `any_support`, which accepts one
+  matching house instead of requiring every support house. Python compiles.
+- `LifeScreen.kt`: `bestWindow` now picks the first window at or after age 18, so a degree
+  shows its actual study window instead of a later repeat; past windows remain labelled
+  "past". The top-3 list still uses the Reader 3 A>B>C>D order.
+- Sample-chart outcome from the existing golden chart data (pure-Python scan, no Swiss
+  Ephemeris needed): `bachelor_degree` strong (2018-09-20 to 2023-12-21), `master_degree`
+  denied (9th CSL Mercury has 1/2/5, none of 4/9/11), `banking_job` mixed (2nd CSL Mercury
+  has 2 but also denies 1/5), `first_private_job` mixed (10th CSL Sun has 6, not 7),
+  `regular_income` strong (2023-12-21 to 2026-07-09; next 2038-09-08 to 2040-12-14).
+- `golden.json` remains stale and must be regenerated; `pyswisseph` is missing locally
+  (`ModuleNotFoundError: No module named 'swisseph'`), so the reference generator cannot run
+  here.

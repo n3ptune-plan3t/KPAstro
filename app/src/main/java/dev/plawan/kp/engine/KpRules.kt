@@ -10,7 +10,7 @@ import kotlin.math.min
 data class Rule(
     val key: String, val cusp: Int, val primary: Int, val support: List<Int>, val denial: List<Int>,
     val status: String, val source: String, val dependsOn: List<String> = emptyList(), val plain: String = "",
-    val altSupport: List<Int> = emptyList(),
+    val altSupport: List<Int> = emptyList(), val anySupport: List<Int> = emptyList(),
 )
 
 fun parseRules(json: String): LinkedHashMap<String, Rule> {
@@ -24,7 +24,7 @@ fun parseRules(json: String): LinkedHashMap<String, Rule> {
         fun strs(n: String) = (m[n] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
         out[k] = Rule(k, (m["cusp"] as Double).toInt(), (m["primary"] as Double).toInt(), ints("support"), ints("denial"),
             m["status"] as? String ?: "?", m["source"] as? String ?: "", strs("depends_on"), m["plain"] as? String ?: "",
-            intsOpt("alt_support"))
+            intsOpt("alt_support"), intsOpt("any_support"))
     }
     return out
 }
@@ -37,8 +37,15 @@ data class Promise(val cuspSubLord: String, val houses: List<Int>, val support: 
 fun promise(ch: Chart, rule: Rule): Promise {
     val csl = ch.cusps[rule.cusp - 1].subLord
     val hs = housesOf(ch, csl)
-    val sup = hs.intersect(rule.support.toSet()).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
+    val group = (rule.support + rule.anySupport).toSet()
+    val sup = hs.intersect(group).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
     val verdict = when {
+        rule.anySupport.isNotEmpty() -> when {
+            sup.isEmpty() -> "denied"
+            den.isEmpty() -> "strong"
+            sup.size > den.size -> "promised"
+            else -> "mixed"
+        }
         sup.size == rule.support.size && den.isEmpty() -> "strong"
         sup.size >= 2 && sup.size > den.size -> "promised"
         sup.isNotEmpty() -> "mixed"
@@ -52,9 +59,10 @@ data class LordCheck(val planet: String, val support: List<Int>, val denial: Lis
 
 fun lordCheck(ch: Chart, planet: String, rule: Rule): LordCheck {
     val hs = housesOf(ch, planet)
-    val sup = hs.intersect(rule.support.toSet()).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
+    val group = (rule.support + rule.anySupport).toSet()
+    val sup = hs.intersect(group).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
     val sub = ch.planets.getValue(planet).subLord; val shs = housesOf(ch, sub)
-    val permission = shs.intersect(rule.denial.toSet()).size <= shs.intersect(rule.support.toSet()).size
+    val permission = shs.intersect(rule.denial.toSet()).size <= shs.intersect(group).size
     return LordCheck(planet, sup, den, sub, permission)
 }
 
@@ -62,8 +70,9 @@ fun periodCheck(ch: Chart, rule: Rule, lords: List<String>): Pair<Boolean, List<
     val det = lords.map { lordCheck(ch, it, rule) }
     val union = det.flatMap { it.support }.toSet()
     val allHouses = lords.flatMap { housesOf(ch, it) }.toSet()
+    val need = if (rule.anySupport.isNotEmpty()) 1 else min(2, rule.support.size)
     val ok = det.all { it.support.isNotEmpty() && it.permission } &&
-        rule.primary in (union + allHouses) && union.size >= min(2, rule.support.size)
+        rule.primary in (union + allHouses) && union.size >= need
     return ok to det
 }
 
