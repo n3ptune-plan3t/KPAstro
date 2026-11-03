@@ -162,8 +162,15 @@ def resolve_areas(rules: dict) -> dict:
 
 
 def net(hs: set[int], grp: dict) -> float:
-    """-1..+1 : share of support houses signified minus share of denial houses signified."""
+    """Legacy unweighted house-presence comparison."""
     return len(hs & grp["support"]) / len(grp["support"]) - len(hs & grp["denial"]) / len(grp["denial"])
+
+
+def net_strength(hs: dict[int, int], grp: dict) -> float:
+    """A>B>C>D ordinal tiers encoded 4/3/2/1, not a probability."""
+    support = sum(hs.get(h, 0) for h in grp["support"]) / (4 * len(grp["support"]))
+    denial = sum(hs.get(h, 0) for h in grp["denial"]) / (4 * max(1, len(grp["denial"])))
+    return support - denial
 
 
 def sgn(x: float) -> int:
@@ -214,19 +221,20 @@ class Context:
         self.rules = rules or kr.load_rules()
         self.areas = resolve_areas(self.rules)
         self.H = {p: set(kp.planet_houses_signified(self.chart, p)) for p in self.chart.planets}
+        self.HS = {p: kp.planet_house_strengths(self.chart, p) for p in self.chart.planets}
         self.mds = kp.mahadashas(self.chart)
         self._ref: dict = {}            # (centre date) -> list of per-day raw means (reference sample)
 
     def lord_net(self, lord: str, grp: dict) -> float:
         """Dasha-lord net with sub-lord permission: a lord whose own sub-lord denies cannot give a positive."""
-        v = net(self.H[lord], grp)
+        v = net_strength(self.HS[lord], grp)
         sub = self.chart.planets[lord].sub_lord
-        if net(self.H[sub], grp) < 0:
+        if net_strength(self.HS[sub], grp) < 0:
             v = min(v, 0.0)
         return v
 
     def tone(self, star: str, sub: str, grp: dict) -> float:
-        return (STAR_W * net(self.H[star], grp) + SUB_W * net(self.H[sub], grp)) / (STAR_W + SUB_W)
+        return (STAR_W * net_strength(self.HS[star], grp) + SUB_W * net_strength(self.HS[sub], grp)) / (STAR_W + SUB_W)
 
 
 def combine(D: float, M: float, T: float, R: float) -> float:
@@ -265,7 +273,7 @@ def slot_scores(ctx: Context, t_mid: datetime, day_lord: str) -> dict:
         T = sum(weights[n] * ctx.tone(v[1], v[2], grp) for n, v in bodies.items()) / sum(weights.values())
         if sun_pin and D:
             T = clamp(T + PIN_BOOST * sgn(D))
-        R = sum(RP_W[k] * net(ctx.H[v], grp) for k, v in rp.items()) / sum(RP_W.values())
+        R = sum(RP_W[k] * net_strength(ctx.HS[v], grp) for k, v in rp.items()) / sum(RP_W.values())
         res[a] = {"score": combine(D, M, T, R), "D": D, "M": M, "T": T, "R": R}
     return {"t": t_mid, "chain": chain, "moon": (m_star, m_sub), "bodies": bodies,
             "moon_pin": moon_pin, "sun_pin": sun_pin, "rp": rp, "areas": res}
@@ -383,7 +391,7 @@ def day_report(ctx: Context, day: datetime, diary_scores: dict | None = None) ->
     cands = {today_lord, prev_lord} | {s["moon"][0] for s in usable} | {s["moon"][1] for s in usable}
     cands.discard(prev_lord if prev_lord not in {s["rp"]["day"] for s in usable} else None)
     def planet_net(p: str) -> float:
-        return sum(net(ctx.H[p], g) for g in ctx.areas.values()) / len(ctx.areas)
+        return sum(net_strength(ctx.HS[p], g) for g in ctx.areas.values()) / len(ctx.areas)
     ranked = sorted(cands, key=planet_net, reverse=True)
     lucky_p, stress_p = ranked[0], ranked[-1]
     second_p = next((x for x in ranked if x != lucky_p), None)

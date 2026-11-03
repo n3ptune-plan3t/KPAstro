@@ -162,6 +162,15 @@ def compute_significators(ch: Chart) -> dict[int, dict[str, list[str]]]:
         out[h] = {"A": A, "B": occupants, "C": C, "D": [lord]}
     return out
 
+def planet_house_strengths(ch: Chart, name: str) -> dict[int, int]:
+    """A>B>C>D order encoded as 4/3/2/1 for comparative ranking, not probabilities."""
+    out = {}
+    for level, strength in zip("ABCD", (4, 3, 2, 1)):
+        for house, significators in ch.significators.items():
+            if name in significators[level]:
+                out[house] = max(out.get(house, 0), strength)
+    return out
+
 
 def _angle(a: float, b: float) -> float:
     d = abs(a - b) % 360

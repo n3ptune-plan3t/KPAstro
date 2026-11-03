@@ -109,6 +109,16 @@ fun computeSignificators(ch: Chart): Map<Int, Sig> = (1..12).associateWith { h -
     )
 }
 
+/** A>B>C>D order encoded as 4/3/2/1 for comparative ranking only; the Reader gives no cardinal weights. */
+fun planetHouseStrengths(ch: Chart, name: String): Map<Int, Int> {
+    val out = LinkedHashMap<Int, Int>()
+    val levels = listOf<(Sig) -> List<String>>({ it.a }, { it.b }, { it.c }, { it.d })
+    for ((index, select) in levels.withIndex()) for (house in 1..12) {
+        if (name in select(ch.significators.getValue(house))) out[house] = maxOf(out[house] ?: 0, 4 - index)
+    }
+    return out
+}
+
 fun angle(a: Double, b: Double): Double { val d = abs(a - b) % 360; return min(d, 360 - d) }
 
 fun nodeAgents(ch: Chart, node: String): List<String> {

@@ -56,6 +56,13 @@ class Group(val support: Set<Int>, val denial: Set<Int>, val status: String, val
 fun net(hs: Set<Int>, g: Group): Double =
     hs.intersect(g.support).size.toDouble() / g.support.size - hs.intersect(g.denial).size.toDouble() / g.denial.size
 
+/** A>B>C>D: ordinal tiers encoded as 4/3/2/1, never interpreted as probability. */
+fun netStrength(hs: Map<Int, Int>, g: Group): Double {
+    val support = g.support.sumOf { hs[it] ?: 0 }.toDouble() / (4.0 * g.support.size)
+    val denial = g.denial.sumOf { hs[it] ?: 0 }.toDouble() / (4.0 * g.denial.size.coerceAtLeast(1))
+    return support - denial
+}
+
 private fun sgn(x: Double) = if (x > 0) 1 else if (x < 0) -1 else 0
 private fun clamp(x: Double, lo: Double = -1.0, hi: Double = 1.0) = maxOf(lo, minOf(hi, x))
 
@@ -71,16 +78,17 @@ class Context(val profile: Profile, val rules: Map<String, Rule>) {
         }
     }
     val H: Map<String, Set<Int>> = chart.planets.keys.associateWith { planetHousesSignified(chart, it).toSet() }
+    val HS: Map<String, Map<Int, Int>> = chart.planets.keys.associateWith { planetHouseStrengths(chart, it) }
     val mds = mahadashas(chart)
     internal val ref = LinkedHashMap<Instant, List<Map<String, Double>>>()
 
     fun lordNet(lord: String, g: Group): Double {
-        var v = net(H.getValue(lord), g)
-        if (net(H.getValue(chart.planets.getValue(lord).subLord), g) < 0) v = minOf(v, 0.0)
+        var v = netStrength(HS.getValue(lord), g)
+        if (netStrength(HS.getValue(chart.planets.getValue(lord).subLord), g) < 0) v = minOf(v, 0.0)
         return v
     }
     fun tone(star: String, sub: String, g: Group) =
-        (Cfg.STAR_W * net(H.getValue(star), g) + Cfg.SUB_W * net(H.getValue(sub), g)) / (Cfg.STAR_W + Cfg.SUB_W)
+        (Cfg.STAR_W * netStrength(HS.getValue(star), g) + Cfg.SUB_W * netStrength(HS.getValue(sub), g)) / (Cfg.STAR_W + Cfg.SUB_W)
 }
 
 fun combine(D: Double, M: Double, T: Double, R: Double): Double {
@@ -137,7 +145,7 @@ fun slotScores(ctx: Context, tMid: Instant, dayLord: String): Slot {
         if (moonPin && D != 0.0) M = clamp(M + Cfg.PIN_BOOST * sgn(D))
         var T = bodies.entries.sumOf { (n, v) -> weights.getValue(n) * ctx.tone(v.star, v.sub, g) } / weights.values.sum()
         if (sunPin && D != 0.0) T = clamp(T + Cfg.PIN_BOOST * sgn(D))
-        val R = rp.entries.sumOf { (k, v) -> Cfg.RP_W.getValue(k) * net(ctx.H.getValue(v), g) } / Cfg.RP_W.values.sum()
+        val R = rp.entries.sumOf { (k, v) -> Cfg.RP_W.getValue(k) * netStrength(ctx.HS.getValue(v), g) } / Cfg.RP_W.values.sum()
         res[a] = AreaSlot(combine(D, M, T, R), D, M, T, R)
     }
     return Slot(tMid, chain, moon.star to moon.sub, bodies, moonPin, sunPin, rp, res)
@@ -246,7 +254,7 @@ fun dayReport(ctx: Context, day: ZonedDateTime, diary: Map<String, SubScore>? = 
     val dayLordsSeen = usable.map { it.rp.getValue("day") }.toSet()
     val cands = LinkedHashSet<String>().apply { add(ds.todayLord); add(ds.prevLord); usable.forEach { add(it.moon.first) }; usable.forEach { add(it.moon.second) } }
     if (ds.prevLord !in dayLordsSeen) cands.remove(ds.prevLord)
-    fun planetNet(p: String) = ctx.areas.values.sumOf { net(ctx.H.getValue(p), it) } / ctx.areas.size
+    fun planetNet(p: String) = ctx.areas.values.sumOf { netStrength(ctx.HS.getValue(p), it) } / ctx.areas.size
     val ranked = cands.sortedByDescending { planetNet(it) }
     val luckyP = ranked.first(); val stressP = ranked.last()
     val secondP = ranked.firstOrNull { it != luckyP }

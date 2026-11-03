@@ -338,3 +338,12 @@ No build and no install were run. Work is on the `deepseek` branch.
 - Reader 5 ~l.9970-10040 explicitly describes 249 sign/star/sub divisions. The generated Vimshottari star/sub table has 243 intervals; six cross a 30-degree sign boundary. The previous sensitive-point implementation assigned the sign lord only at each interval's start, losing the second sign segment.
 - KpTiming.kt and tools/reference/kp_timing.py now split every star/sub interval at sign boundaries before matching the exact three-lord group. This yields 249 sign/star/sub zones and preserves the existing five Reader-derived golden examples.
 - GoldenCheck.kt asserts that the engine constructs exactly 249 zones. No promise rule or event catalogue was altered. No build/compile was run; run host-check and compare the five sensitive-point vectors after pulling.
+
+
+### Session 13 (2026-11-03): strength-aware daily model
+
+- Reader 3 ~l.19169-19190 states the KP significator hierarchy. KpDaily previously flattened A/B/C/D houses into sets and counted every house equally.
+- Added planetHouseStrengths / planet_house_strengths, selecting the strongest A/B/C/D tier per house. The daily model now uses this ordered strength for dasha lords and sub-lord permission, Moon star/sub, transit star/sub and ruling planets. The reference and Kotlin implementations mirror each other.
+- A=4, B=3, C=2, D=1 is an order-preserving encoding for the comparative presentation index; the Reader defines the order, not these cardinal weights. The index is not a probability.
+- Event promise and period eligibility thresholds remain unchanged because they require a separate event-by-event source audit.
+- Source: kp-readers/J_KP reader_3_Predictive Stellar Astrology_djvu.txt ~l.19169-19190. Daily golden values will change; regenerate tools/reference/golden.json and run tools/host-check/run.sh. No build/compile run here.
