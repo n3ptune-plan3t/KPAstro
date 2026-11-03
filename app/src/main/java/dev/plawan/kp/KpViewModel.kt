@@ -18,7 +18,7 @@ import java.time.LocalDate
 class KpViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = KpRepository(app)
     private val analysis = KpAnalysis()
-    private val rules = repository.loadRules()
+    private var rules = repository.loadRules()
     private val mutex = Mutex()
     private val timingMutex = Mutex()
 
@@ -34,6 +34,7 @@ class KpViewModel(app: Application) : AndroidViewModel(app) {
     val timings = MutableStateFlow<Map<String, EventTiming>>(emptyMap())
     val timingBusy = MutableStateFlow<Set<String>>(emptySet())
     val error = MutableStateFlow<String?>(null)
+    val ruleUpdateStatus = MutableStateFlow<String?>(null)
 
     init { profile.value?.let { rebuild(it) } }
 
@@ -42,6 +43,23 @@ class KpViewModel(app: Application) : AndroidViewModel(app) {
         profile.value = p
         rebuild(p)
     }
+
+    /** Explicitly refresh the rule catalogue over HTTPS; validated rules are cached for offline use. */
+    fun refreshRules() = viewModelScope.launch {
+        ruleUpdateStatus.value = "Checking for rule updates…"
+        runCatching {
+            withContext(Dispatchers.IO) { repository.refreshRules() }
+        }.onSuccess { updated ->
+            rules = updated
+            ruleUpdateStatus.value = "Rule catalogue updated (${updated.size} rules)."
+            profile.value?.let { rebuild(it) }
+        }.onFailure {
+            ruleUpdateStatus.value = "Update unavailable: ${it.message ?: "network error"}. Using saved rules."
+        }
+    }
+
+    /** Reads the last known device location after the UI has obtained runtime permission. */
+    fun lastKnownLocation(): Place? = runCatching { repository.lastKnownLocation() }.getOrNull()
 
     private fun rebuild(p: Profile) = viewModelScope.launch {
         error.value = null

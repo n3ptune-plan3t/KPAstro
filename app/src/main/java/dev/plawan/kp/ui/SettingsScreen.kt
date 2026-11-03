@@ -1,5 +1,11 @@
 package dev.plawan.kp.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +47,32 @@ fun SettingsScreen(vm: KpViewModel, modifier: Modifier = Modifier, onSaved: () -
     var clat by remember(saved) { mutableStateOf(p.current.lat.toString()) }
     var clon by remember(saved) { mutableStateOf(p.current.lon.toString()) }
     var err by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val ruleStatus by vm.ruleUpdateStatus.collectAsStateWithLifecycle()
+
+    fun applyDeviceLocation() {
+        val place = vm.lastKnownLocation()
+        if (place == null) {
+            err = "No recent device location. Enable location services or enter coordinates manually."
+        } else {
+            same = false
+            clat = place.lat.toString()
+            clon = place.lon.toString()
+            cz = place.zone.id
+            err = null
+        }
+    }
+
+    val locationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            applyDeviceLocation()
+        } else {
+            err = "Location permission was not granted. You can still enter coordinates manually."
+        }
+    }
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(16.dp),
@@ -88,6 +120,18 @@ fun SettingsScreen(vm: KpViewModel, modifier: Modifier = Modifier, onSaved: () -
                 Text("Use birth place", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 Switch(same, { same = it })
             }
+            Button(
+                onClick = {
+                    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (fine || coarse) applyDeviceLocation()
+                    else locationPermission.launch(arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Use device location") }
             if (!same) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                 Field("Current time zone", cz) { cz = it }
@@ -96,6 +140,19 @@ fun SettingsScreen(vm: KpViewModel, modifier: Modifier = Modifier, onSaved: () -
                     Box(Modifier.weight(1f)) { Field("Longitude", clon, num = true) { clon = it } }
                 }
             }
+        }
+
+        KpCard {
+            SectionTitle("Online rule updates")
+            Text(
+                "Check the project's HTTPS rule catalogue. Validated updates are cached; chart calculations continue to work offline.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(onClick = { vm.refreshRules() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Check for rule updates")
+            }
+            ruleStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
 
         err?.let { Text(it, color = KpColors.Bad, style = MaterialTheme.typography.bodySmall) }

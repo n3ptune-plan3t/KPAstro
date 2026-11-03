@@ -25,7 +25,9 @@ A first-time user is taken directly to Profile. After saving, the app opens Toda
 
 ## Network and privacy boundary
 
-The calculation engine does not require network access. Any future geocoding, place search, remote rule-catalogue check or sync must be optional, use an explicit repository implementation, and leave manual coordinates and bundled rules available as fallbacks. Birth details should not be transmitted unless a user-initiated feature clearly requires it and the user has been told what is sent.
+The calculation engine does not require network access. The app requests internet access only for the user-triggered rule-catalogue update in Profile. The update downloads the catalogue over HTTPS from this repository's `deepseek` branch, validates the event set, house numbers, status values and source citations, then caches the validated JSON for offline use. Invalid or unavailable downloads are rejected and the bundled/cached rules remain usable. No birth details or profile data are sent.
+
+The Profile screen can also request Android's runtime coarse/fine location permission and read the device's last-known location (up to 24 hours old) to fill the current calculation location. This lookup does not replace birth coordinates and does not make a network request. Manual coordinates remain available. The engine continues to calculate locally with the bundled Moshier ephemeris; no ephemeris download/update mechanism is needed.
 
 ## Build
 
