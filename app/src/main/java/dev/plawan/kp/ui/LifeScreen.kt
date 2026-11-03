@@ -180,7 +180,7 @@ private fun zoneLabel(p: SensitivePoint) = "sign ${p.sign} / star ${p.star} / su
 @Composable
 private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean) {
     Text("Month-level transit timing", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    Text("A month is listed when the Moon crosses the sensitive sign/star/sub zone during a qualifying Dasa–Bhukti–Anthra. Sun, Jupiter and running period lords are shown only when they also cross that same zone in that month. These are astrological indications, not guarantees.",
+    Text("A month is nominated when the Sun crosses the sensitive sign/star/sub zone during a qualifying Dasa–Bhukti–Anthra. Jupiter provides slow/broad corroboration; Moon and running period-lord crossings provide finer confirmation when they also cross that same zone. These are astrological indications, not guarantees.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when {
         e.promise.verdict !in listOf("strong", "promised", "mixed") ->
@@ -196,7 +196,7 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
         timing == null ->
             Text("Computing the exact times…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         timing.monthly.isEmpty() ->
-            Text("No qualifying Moon crossing was found inside the scanned Dasa–Bhukti–Anthra periods.",
+            Text("No qualifying Sun month-window was found inside the scanned Dasa–Bhukti–Anthra periods.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> {
             timing.monthly.take(24).forEach { candidate ->
@@ -204,14 +204,14 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text("Dasa–Bhukti–Anthra: " + candidate.chains.joinToString(" / ") { it.joinToString("–") },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Moon: ${candidate.moonCrossings.size} · Sun: ${candidate.sunConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
+                Text("Sun: ${candidate.moonCrossings.size} · Moon: ${candidate.sunConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Sensitive zone: " + candidate.moonCrossings.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (timing.monthly.size > 24) Text("+${timing.monthly.size - 24} additional candidate months",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text("Sources: Reader 5 ~l.9900–10070 (249 sensitive sign/star/sub zones); KP Astrology tutorial, Chapter 2, Timing Events (DBA, Sun and Moon transit timing); Astro Chart, Timing of the Events, 29 Apr 2026 (Jupiter/Sun/Moon and DBA-lord transit method).",
+            Text("Sources: Reader 5 ~l.9900–10070 (249 sensitive sign/star/sub zones); KP Astrology tutorial, Chapter 2, lines 498–514 (DBA, Sun within a year, Moon within a month); Astro Chart, Timing of the Events, 29 Apr 2026 (Jupiter beyond a year, Sun within months, Moon within days).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
