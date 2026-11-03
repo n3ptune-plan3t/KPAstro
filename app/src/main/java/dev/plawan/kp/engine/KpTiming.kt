@@ -280,7 +280,7 @@ fun exactTimes(
             val jupiter = inMonth.filter { it.body == "Jupiter" && suns.any { s -> sameMonthAndPoint(s, it) } }
             val period = inMonth.filter {
                 it.body !in setOf("Moon", "Sun", "Jupiter") &&
-                    moons.any { s -> sameMonthAndPoint(s, it) }
+                    suns.any { s -> sameMonthAndPoint(s, it) }
             }
             MonthCandidate(month, suns.map { it.chain }.distinct(), suns.distinct(),
                 moon.distinct(), jupiter.distinct(), period.distinct())
