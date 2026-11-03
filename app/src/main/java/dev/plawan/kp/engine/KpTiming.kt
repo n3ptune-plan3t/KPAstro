@@ -7,8 +7,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 // Month-level KP timing. A qualifying Dasa-Bhukti-Anthara defines the active period.
-// Sun crossings of its sensitive sign/star/sub zones nominate calendar months;
-// Jupiter provides slow/broad corroboration; Moon and the running period lords provide finer confirmation.
+// Dasa-Bhukti-Anthara lords must be checked against their joint sensitive zones.
+// Sun is the broad within-a-year check; Moon narrows the event to a month.
+// Jupiter is an additional, non-core broad-period corroboration.
 // Transit is never used without the natal promise and active period.
 
 data class SensitivePoint(val sign: String, val star: String, val sub: String)
@@ -22,8 +23,8 @@ data class ExactWindow(
 data class MonthCandidate(
     val month: YearMonth,
     val chains: List<List<String>>,
-    val sunTriggers: List<ExactWindow>,
-    val moonConfirmations: List<ExactWindow>,
+    val sunYearChecks: List<ExactWindow>,
+    val moonMonthTriggers: List<ExactWindow>,
     val jupiterConfirmations: List<ExactWindow>,
     val periodLordConfirmations: List<ExactWindow>,
 )
@@ -56,13 +57,13 @@ private const val THREE_LEVEL_SOURCE =
 private const val TWO_LEVEL_SOURCE =
     "Reader 5 ~l.2626: the result is felt when one luminary transits the star of one lord and the sub of the other."
 private const val MOON_SOURCE =
-    "KP Astrology tutorial, Chapter 2, Timing Events: Moon transit through significators is used for finer timing when the event is expected within about a month; Reader 5 ~l.9970-10070 gives sensitive zones."
+    "KP Astrology tutorial, Chapter 2, lines 507-514: Moon transit through significators pinpoints an event to a month; Reader 5 ~l.9970-10070 gives the joint sensitive zones."
 private const val SUN_SOURCE =
-    "KP Astrology tutorial, Chapter 2, Timing Events: Sun transit is used when the event is expected within a year; Astro Chart, Timing of the Events, 29 Apr 2026."
+    "KP Astrology tutorial, Chapter 2, lines 507-514: Sun transit is the broad check when an event is expected within a year."
 private const val ASC_SOURCE =
     "Reader 5 ~l.11170-11180: within the Moon hour the Lagna gives the exact minute."
 private const val JUPITER_SOURCE =
-    "Astro Chart, Timing of the Events, 29 Apr 2026, method 6: Jupiter transit through DBA-lord stars/subs is used for events expected beyond a year. Broad corroboration only."
+    "Astro Chart, Timing of the Events, 29 Apr 2026, method 6: Jupiter transit through DBA-lord stars/subs is proposed for events expected beyond a year. Optional external-source corroboration; not a core Reader 5 gate."
 private const val LORD_SOURCE =
     "Reader 5 ~l.9970-10070: transits of the running Dasa-Bhukti-Anthra lords through their joint sensitive zones are relevant; scan interval is an implementation setting."
 
@@ -213,10 +214,11 @@ private fun refineAsc(
 /**
  * Produce calendar-month candidates from the Reader 5 transit procedure.
  *
- * A candidate is emitted only inside a qualifying Dasa-Bhukti-Anthra and when
- * a period lord or the Sun crosses a sign/star/sub combination belonging to
- * that three-lord group. The app deliberately reports the month, not a false
- * day/hour/minute certainty.
+ * A candidate month is emitted when the Moon crosses a Reader 5 sensitive
+ * sign/star/sub combination during a qualifying Dasa-Bhukti-Anthra. The Sun is
+ * retained as a broader within-a-year check; the period lords are checked for
+ * their Reader 5 transits. Jupiter is optional corroboration, never a required gate.
+ * The app reports months, not false day/hour/minute certainty.
  */
 fun exactTimes(
     ch: Chart, rule: Rule, from: Instant, to: Instant, lat: Double? = null, lon: Double? = null,
@@ -242,8 +244,8 @@ fun exactTimes(
         val strength = chain.sumOf { significatorRank(ch, it, rule.primary) }
         val s0 = maxOf(p.start, from)
         val e0 = minOf(p.end, to)
-        // Jupiter = broad context; Sun = month trigger; Moon = finer confirmation.
-        // Period lords independently confirm the active DBA's sensitive zone.
+        // Sun = within-year check; Moon = month-level trigger.
+        // DBA lords transit the Reader 5 joint zones; Jupiter is optional broad context.
         val bodies = (listOf("Jupiter", "Sun", "Moon") + chain).distinct()
         for (body in bodies) {
             val step = when {
@@ -270,20 +272,20 @@ fun exactTimes(
     fun sameMonthAndPoint(a: ExactWindow, b: ExactWindow) =
         monthOf(a) == monthOf(b) && a.point == b.point
 
-    val sunHits = raw.filter { it.body == "Sun" }
-    val monthly = sunHits.groupBy(::monthOf).entries
+    val moonHits = raw.filter { it.body == "Moon" }
+    val monthly = moonHits.groupBy(::monthOf).entries
         .sortedBy { it.key }
         .take(cfg.maxHits)
-        .map { (month, suns) ->
+        .map { (month, moons) ->
             val inMonth = raw.filter { monthOf(it) == month }
-            val moon = inMonth.filter { it.body == "Moon" && suns.any { s -> sameMonthAndPoint(s, it) } }
-            val jupiter = inMonth.filter { it.body == "Jupiter" && suns.any { s -> sameMonthAndPoint(s, it) } }
+            val sun = inMonth.filter { it.body == "Sun" && moons.any { m -> sameMonthAndPoint(m, it) } }
+            val jupiter = inMonth.filter { it.body == "Jupiter" && moons.any { m -> sameMonthAndPoint(m, it) } }
             val period = inMonth.filter {
                 it.body !in setOf("Moon", "Sun", "Jupiter") &&
-                    suns.any { s -> sameMonthAndPoint(s, it) }
+                    moons.any { m -> sameMonthAndPoint(m, it) }
             }
-            MonthCandidate(month, suns.map { it.chain }.distinct(), suns.distinct(),
-                moon.distinct(), jupiter.distinct(), period.distinct())
+            MonthCandidate(month, moons.map { it.chain }.distinct(), sun.distinct(),
+                moons.distinct(), jupiter.distinct(), period.distinct())
         }
     return EventTiming(rule, pr, broad, emptyList(), monthly)
 }

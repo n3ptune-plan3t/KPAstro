@@ -6,8 +6,9 @@
     "primary_cohort": "Rodden AA birth-record cases only",
     "source_policy": "Each record was individually inspected; no scraping or bulk harvesting.",
     "limitations": "Small convenience sample, one event class. Cannot prove scientific validity. Do not tune the model on these same cases.",
-    "method": "Hit if the actual marriage month is in Moon-triggered candidates during a qualifying Dasa-Bhukti-Anthara. Sun, Jupiter and DBA-lord transits through the same zone/month are recorded as corroboration, not required gates.",
-    "rule": "marriage"
+    "method": "Hit if the actual marriage month is in Moon-triggered candidates during a qualifying Dasa-Bhukti-Anthara. Sun is the within-a-year check; period-lord crossings through joint sensitive zones are tracked; Jupiter is optional external corroboration.",
+    "rule": "marriage",
+    "role": "development/exploratory dataset only; not a holdout and not suitable for final performance claims"
   },
   "cases": [
     {

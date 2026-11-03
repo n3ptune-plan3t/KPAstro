@@ -65,13 +65,15 @@ The former dasha-chain support-count heuristic has been removed. Every lord in a
 - The chart/ephemeris/Vimshottari calculation engine and Compose UI are retained.
 - Event promise scoring no longer uses the old arbitrary 'two houses' or support-versus-denial count. Outcomes distinguish supported, mixed, denied and insufficient evidence.
 - Life forecast periods now scan to Dasa–Bhukti–Anthra depth.
-- Month candidates are produced when the Sun crosses a Reader 5 sensitive sign/star/sub zone during a qualifying three-lord period. Jupiter provides slow/broad corroboration; Moon and running period-lord crossings are shown as finer confirmations. Exact day/hour/minute claims are not shown in Forecast.
+- Month candidates are produced when the Moon crosses a Reader 5 sensitive sign/star/sub zone during a qualifying three-lord period. Sun is the broader within-a-year check; running DBA-lord transits are checked against joint sensitive zones. Jupiter remains optional external corroboration. Exact day/hour/minute claims are not shown in Forecast.
 - Reader 5 OCR lines 9900–10070 describes the 249 zones and three-lord transit method. KP Astrology tutorial, Chapter 2, lines 498–514, describes DBA timing, Sun transit for events within a year and Moon transit for events expected within about a month. Astro Chart, “Timing of the Events” (29 Apr 2026), describes Jupiter for events beyond a year, Sun for events within months and Moon for events within days.
 - This is still an astrological method, not a scientifically validated guarantee. The remaining 56 event definitions need individual source audits and independent worked-chart backtests before the app can label every event rule verified.
 
 ## Next work
 
-1. Review all event promise definitions against their exact Reader passages; encode any conjunctions and exceptions explicitly.
-2. Add worked-example regression cases from the Readers and dated event charts with known outcomes.
-3. Validate month-candidate coverage and performance in GitHub Actions and on-device testing.
+1. Audit all 56 event promise definitions against exact Reader passages; mark verified/partial/unverified and encode conjunctions and exceptions explicitly.
+2. Correct transit timing to DBA lord activation, Sun within-year refinement and Moon within-month refinement; treat Jupiter as optional unless supported by primary KP text.
+3. Add Reader worked-example regression tests for every event rule.
+4. Freeze the method; retain current celebrity sample as development data only, then build a separate sealed holdout from different people/events.
+5. Evaluate the holdout once using preregistered scoring, candidate density and baseline comparisons.
 

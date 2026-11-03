@@ -180,7 +180,7 @@ private fun zoneLabel(p: SensitivePoint) = "sign ${p.sign} / star ${p.star} / su
 @Composable
 private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean) {
     Text("Month-level transit timing", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    Text("A month is nominated when the Sun crosses the sensitive sign/star/sub zone during a qualifying Dasa–Bhukti–Anthra. Jupiter provides slow/broad corroboration; Moon and running period-lord crossings provide finer confirmation when they also cross that same zone. These are astrological indications, not guarantees.",
+    Text("A month is nominated when the Moon crosses a sensitive sign/star/sub zone during a qualifying Dasa–Bhukti–Anthra. The Sun is the broader within-a-year check; DBA-lord transits through the joint zones follow Reader 5. Jupiter is shown only as optional broad corroboration. These are astrological indications, not guarantees.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when {
         e.promise.verdict !in listOf("strong", "promised", "mixed") ->
@@ -196,7 +196,7 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
         timing == null ->
             Text("Computing the exact times…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         timing.monthly.isEmpty() ->
-            Text("No qualifying Sun month-window was found inside the scanned Dasa–Bhukti–Anthra periods.",
+            Text("No qualifying Moon month-window was found inside the scanned Dasa–Bhukti–Anthra periods.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> {
             timing.monthly.take(24).forEach { candidate ->
@@ -204,14 +204,14 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text("Dasa–Bhukti–Anthra: " + candidate.chains.joinToString(" / ") { it.joinToString("–") },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Sun: ${candidate.sunTriggers.size} · Moon: ${candidate.moonConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
+                Text("Sun/year: ${candidate.sunYearChecks.size} · Moon/month: ${candidate.moonMonthTriggers.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Sensitive zone: " + candidate.sunTriggers.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
+                Text("Sensitive zone: " + candidate.moonMonthTriggers.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (timing.monthly.size > 24) Text("+${timing.monthly.size - 24} additional candidate months",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text("Sources: Reader 5 ~l.9900–10070 (249 sensitive sign/star/sub zones); KP Astrology tutorial, Chapter 2, lines 498–514 (DBA, Sun within a year, Moon within a month); Astro Chart, Timing of the Events, 29 Apr 2026 (Jupiter beyond a year, Sun within months, Moon within days).",
+            Text("Sources: Reader 5 ~l.9970–10070 (DBA-lord, luminary and Lagna transits through joint sensitive zones); KP Astrology tutorial, Chapter 2, lines 507–514 (Sun within a year; Moon within a month). Jupiter is optional external corroboration, not a canonical requirement.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
