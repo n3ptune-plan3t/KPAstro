@@ -72,18 +72,76 @@ DOING = {   # good_for / avoid text per area (generic, not KP canon)
     "travel":        ("trips, relocation errands, visa or booking work",
                       "unnecessary or rushed journeys"),
 }
-# Popular planet correspondences. NOT from the KP Readers - shown only as "traditional" lucky things.
-PLANET_THINGS = {
-    "Sun":     {"colour": "orange / red", "number": 1, "direction": "East"},
-    "Moon":    {"colour": "white / silver", "number": 2, "direction": "North-West"},
-    "Mars":    {"colour": "red / maroon", "number": 9, "direction": "South"},
-    "Mercury": {"colour": "green", "number": 5, "direction": "North"},
-    "Jupiter": {"colour": "yellow / gold", "number": 3, "direction": "North-East"},
-    "Venus":   {"colour": "white / pink", "number": 6, "direction": "South-East"},
-    "Saturn":  {"colour": "dark blue / black", "number": 8, "direction": "West"},
-    "Rahu":    {"colour": "smoky grey / dark", "number": 4, "direction": "South-West"},
-    "Ketu":    {"colour": "mixed / earthy brown", "number": 7, "direction": "South-West"},
+# Lucky colours / numbers / directions per planet. Each field carries its Reader citation (R2 = Reader 2 ch.18 planets,
+# R3/R4 = Reader 3/4 planet-colour table); an empty source means a traditional correspondence NOT in the Readers.
+# Mirrors PLANET_LORE in app/.../engine/KpLucky.kt.
+def _lore(colours, csrc, numbers, nsrc, direction, dsrc, day="", daysrc="", series=False, stars=(), starsrc="", avoid_numbers=(), note=""):
+    return {"colours": list(colours), "colours_src": csrc, "numbers": list(numbers), "numbers_src": nsrc, "series": series,
+            "direction": direction, "direction_src": dsrc, "day": day, "day_src": daysrc,
+            "stars": list(stars), "stars_src": starsrc, "avoid_numbers": list(avoid_numbers), "note": note}
+
+PLANET_LORE = {
+    "Sun":     _lore(["Orange", "Dark red"], "R2 ~l.15223; R3 ~l.25414 / R4 ~l.17217", [1, 4], "R2 ~l.15522", "East", "R2 ~l.15222",
+                     "Sunday", "R2 ~l.15513", stars=["Krittika", "Uttara Phalguni", "Uttara Ashadha"], starsrc="R2 ~l.15517"),
+    "Moon":    _lore(["White", "Silvery"], "R2 ~l.15912; R3 ~l.25415 / R4 ~l.17218", [2, 7], "R2 ~l.15905", "North-West", "",
+                     "Monday", "R2 ~l.15898", avoid_numbers=[8]),
+    "Mars":    _lore(["Red", "Deep red"], "R2 ~l.16533; R3 ~l.25436", [9], "R2 ~l.16526", "South", "", "Tuesday", "R2 ~l.16512",
+                     note="Red = authority and power; blue/green cool a rash person (R2 ~l.16533-16567)"),
+    "Mercury": _lore(["Green"], "R2 ~l.17084; R3 ~l.25418 / R4 ~l.17220", [5], "R2 ~l.17096-17099", "North", "R2 ~l.17086",
+                     "Wednesday", "R2 ~l.6608", series=True, note="Chief governor of education (R2 ~l.17104)"),
+    "Jupiter": _lore(["Purple", "Violet", "Blue", "White"], "R3 ~l.25437 (OCR-garbled table row)", [3], "", "North-East", "R2 ~l.17918",
+                     "Thursday", ""),
+    "Venus":   _lore(["White", "Cream", "Ivory"], "R2 ~l.18273", [6], "R2 ~l.18274", "South-East", "", "Friday", "R2 ~l.18275",
+                     series=True, stars=["Bharani", "Purva Phalguni", "Purva Ashadha"], starsrc="R2 ~l.18287"),
+    "Saturn":  _lore(["Blue", "Black", "Dark brown", "Indigo"], "R2 ~l.19348 (blue if Saturn is benefic), ~l.19092; R3 ~l.25440", [8], "R2 ~l.19352",
+                     "West", "", "Saturday", "R2 ~l.19353", series=True, stars=["Pushya", "Anuradha", "Uttara Bhadrapada"], starsrc="R2 ~l.19357"),
+    "Rahu":    _lore(["Mixed colours"], "R3 ~l.25441", [4], "", "South-West", ""),
+    "Ketu":    _lore(["Mixed colours"], "R3 ~l.25441 / R4 ~l.17229", [7], "", "South-West", ""),
 }
+
+
+def digital_root(n: int) -> int:
+    return 0 if n <= 0 else 1 + (n - 1) % 9
+
+
+def lucky_kit(d, lucky_p: str, second_p, stress_p: str, day_lord: str, study_score: int) -> dict:
+    """Daily lucky colours / numbers and how to use them (exams etc.). Colour/number are the Readers' per-planet
+    correspondences; applying them to one day's lucky planet is this app's extension (the Readers use them per period)."""
+    p = PLANET_LORE[lucky_p]
+    s = PLANET_LORE[second_p] if second_p and second_p != lucky_p else None
+    st = PLANET_LORE[stress_p]
+    seen, colours = set(), []
+    for c in p["colours"] + (s["colours"][:1] if s else []):
+        if c.lower() not in seen:
+            seen.add(c.lower()); colours.append(c)
+    numbers = list(dict.fromkeys(p["numbers"] + (s["numbers"] if s else [])))
+    series = list(range(p["numbers"][0], 56, 9)) if p["series"] else []
+    avoid_colours = [] if stress_p == lucky_p else [c for c in st["colours"] if c.lower() not in seen][:2]
+    root = digital_root(d.day)
+    hit = lambda l: any(digital_root(n) == root for n in l["numbers"])
+    date_note = (f"Today's date number {d.day} reduces to {root}, one of {lucky_p}'s numbers." if hit(p)
+                 else f"Today's date number {d.day} reduces to {root}, one of {second_p}'s numbers." if s and hit(s) else None)
+    if study_score >= 60:
+        exam = f"Study score {study_score}: better-than-usual day for exams and new topics."
+    elif study_score >= 40:
+        exam = f"Study score {study_score}: ordinary day; steady revision works."
+    else:
+        exam = f"Study score {study_score}: heavier than usual; revise known material, avoid cramming."
+    trad = lambda src: "" if src else " (traditional)"
+    return {
+        "lucky_planet": lucky_p, "second_planet": second_p if s else None, "day_lord_is_lucky": day_lord == lucky_p,
+        "colours": colours, "numbers": numbers, "number_series": series, "numbers_traditional": not p["numbers_src"],
+        "direction": p["direction"] + trad(p["direction_src"]), "avoid_colours": avoid_colours, "avoid_numbers": p["avoid_numbers"],
+        "date_note": date_note, "sources": {"colours": p["colours_src"], "numbers": p["numbers_src"], "direction": p["direction_src"]},
+        "how_to_use": {
+            "exams": [f"Wear or carry {' / '.join(p['colours']).lower()}.",
+                      f"Where the choice is yours (seat, slot, roll, room) prefer {', '.join(map(str, p['numbers']))}{trad(p['numbers_src'])}.",
+                      f"Study or sit facing {p['direction']}{trad(p['direction_src'])}.", exam,
+                      "Mercury is chief governor of education (R2 ~l.17104): green and 5 are a natural backup."],
+            "mood": ["Rash or impulsive: blue or green to cool down.", "Dull or lethargic: red for energy (R2 ~l.16533-16549)."],
+        },
+        "note": "Colour and number are supportive habits, not guarantees. Not for lottery or betting.",
+    }
 
 
 # ------------------------------------------------------------------ helpers
@@ -328,6 +386,7 @@ def day_report(ctx: Context, day: datetime, diary_scores: dict | None = None) ->
         return sum(net(ctx.H[p], g) for g in ctx.areas.values()) / len(ctx.areas)
     ranked = sorted(cands, key=planet_net, reverse=True)
     lucky_p, stress_p = ranked[0], ranked[-1]
+    second_p = next((x for x in ranked if x != lucky_p), None)
 
     pins = []
     for w in kr.moon_windows(d0, 5):
@@ -351,8 +410,10 @@ def day_report(ctx: Context, day: datetime, diary_scores: dict | None = None) ->
         "lucky_windows": lucky, "avoid_windows": unlucky, "moon_pin_windows": pins,
         "sun_pin_today": any(s["sun_pin"] for s in usable),
         "transit_snapshot": {n: {"sign_lord": v[0], "star": v[1], "sub": v[2]} for n, v in noon["bodies"].items()},
-        "lucky_planet": {"planet": lucky_p, **PLANET_THINGS[lucky_p]},
-        "stress_planet": {"planet": stress_p, "avoid_colour": PLANET_THINGS[stress_p]["colour"]},
+        "lucky_planet": {"planet": lucky_p, "colour": " / ".join(PLANET_LORE[lucky_p]["colours"]).lower(),
+                         "number": PLANET_LORE[lucky_p]["numbers"][0], "direction": PLANET_LORE[lucky_p]["direction"]},
+        "stress_planet": {"planet": stress_p, "avoid_colour": " / ".join(PLANET_LORE[stress_p]["colours"]).lower()},
+        "lucky_kit": lucky_kit(d0, lucky_p, second_p, stress_p, today_lord, areas["study"]["score"]),
         "personal_diary_windows": personal,
     }
 
@@ -410,9 +471,23 @@ def render_text(rep: dict, ctx: Context) -> str:
     lp, sp = rep["lucky_planet"], rep["stress_planet"]
     good = [DOING[a][0] for a in rep["best_areas"] if rep["areas"][a]["score"] >= 60]
     bad = [DOING[a][1] for a in rep["weak_areas"] if rep["areas"][a]["score"] <= 40]
-    L.append("LUCKY THINGS (traditional planet correspondences, not from the KP Readers):")
-    L.append(f"   Lucky planet today: {lp['planet']}  colour {lp['colour']}, number {lp['number']}, direction {lp['direction']}")
-    L.append(f"   Go easy on: {sp['planet']} energy (avoid {sp['avoid_colour']} for important things)")
+    k = rep["lucky_kit"]
+    L.append("LUCKY COLOURS & NUMBERS (planet correspondences from Reader 2 ch.18 / Reader 3-4 colour table; * = traditional):")
+    L.append(f"   Lucky planet today: {k['lucky_planet']}" + (f" (also {k['second_planet']})" if k["second_planet"] else ""))
+    L.append("   Colours: " + ", ".join(k["colours"]))
+    L.append("   Numbers: " + ", ".join(map(str, k["numbers"])) + ("*" if k["numbers_traditional"] else "")
+             + (f"   series: {', '.join(map(str, k['number_series']))}" if k["number_series"] else ""))
+    if k["date_note"]:
+        L.append("   " + k["date_note"])
+    L.append(f"   Direction: {k['direction']}")
+    avoid = [f"colours {'/'.join(k['avoid_colours']).lower()}"] if k["avoid_colours"] else []
+    avoid += [f"number {', '.join(map(str, k['avoid_numbers']))}"] if k["avoid_numbers"] else []
+    L.append(f"   Go easy on: {sp['planet']} energy" + (f" ({'; '.join(avoid)})" if avoid else ""))
+    L.append("   HOW TO USE - exams & study:")
+    L += [f"      - {t}" for t in k["how_to_use"]["exams"]]
+    L.append("   HOW TO USE - mood:")
+    L += [f"      - {t}" for t in k["how_to_use"]["mood"]]
+    L.append("   " + k["note"] + " The Readers tie colour/number to planetary periods; a single-day use is this app's extension.")
     L.append("GOOD FOR: " + ("; ".join(good) if good else "routine work; no area stands out"))
     L.append("BE CAREFUL WITH: " + ("; ".join(bad) if bad else "nothing special"))
     L.append("")

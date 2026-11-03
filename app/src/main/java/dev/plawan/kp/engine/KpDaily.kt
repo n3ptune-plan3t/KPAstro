@@ -45,15 +45,7 @@ val AREAS = listOf(
     AreaDef("travel", "Travel & change", "foreign_travel", emptyList(), emptyList(), "", "trips, relocation errands, visa or booking work", "unnecessary or rushed journeys"),
 )
 
-data class PlanetThing(val colour: String, val number: Int, val direction: String)
-// Popular correspondences, NOT from the KP Readers.
-val PLANET_THINGS = mapOf(
-    "Sun" to PlanetThing("orange / red", 1, "East"), "Moon" to PlanetThing("white / silver", 2, "North-West"),
-    "Mars" to PlanetThing("red / maroon", 9, "South"), "Mercury" to PlanetThing("green", 5, "North"),
-    "Jupiter" to PlanetThing("yellow / gold", 3, "North-East"), "Venus" to PlanetThing("white / pink", 6, "South-East"),
-    "Saturn" to PlanetThing("dark blue / black", 8, "West"), "Rahu" to PlanetThing("smoky grey / dark", 4, "South-West"),
-    "Ketu" to PlanetThing("mixed / earthy brown", 7, "South-West"),
-)
+// Lucky colours/numbers per planet live in KpLucky.kt (PLANET_LORE), each field with its Reader citation.
 
 // ------------------------------------------------------------------ profile + context
 data class Place(val zone: ZoneId, val lat: Double, val lon: Double)
@@ -218,7 +210,7 @@ data class AreaReport(
     val tone: String, val mainDriver: Driver, val nextDriver: Driver,
 )
 data class MoonPin(val start: Instant, val end: Instant, val star: String, val sub: String, val chain: List<String>)
-data class LuckyPlanet(val planet: String, val thing: PlanetThing)
+data class LuckyPlanet(val planet: String, val lore: PlanetLore)
 data class DayReport(
     val date: LocalDate, val weekday: String, val zone: ZoneId, val sunrise: Instant, val dayLord: String, val dashaChain: List<String>,
     val overallScore: Int, val overallVerdict: String, val overallRaw: Double, val overallBackdrop: String,
@@ -226,6 +218,7 @@ data class DayReport(
     val lucky: List<TWindow>, val avoid: List<TWindow>, val moonPins: List<MoonPin>, val sunPinToday: Boolean,
     val transits: Map<String, Triple3>, val luckyPlanet: LuckyPlanet, val stressPlanet: LuckyPlanet,
     val goodFor: List<String>, val beCareful: List<String>, val personal: List<LuckyWindow>?,
+    val luckyKit: LuckyKit,
 )
 
 private fun effectWord(v: Double) = if (v > 0.05) "helps" else if (v < -0.05) "pulls against" else "stays neutral on"
@@ -256,6 +249,7 @@ fun dayReport(ctx: Context, day: ZonedDateTime, diary: Map<String, SubScore>? = 
     fun planetNet(p: String) = ctx.areas.values.sumOf { net(ctx.H.getValue(p), it) } / ctx.areas.size
     val ranked = cands.sortedByDescending { planetNet(it) }
     val luckyP = ranked.first(); val stressP = ranked.last()
+    val secondP = ranked.firstOrNull { it != luckyP }
 
     val pins = moonWindows(d0.toInstant(), 5).mapNotNull { w ->
         val chain = chainAt(ctx.mds, w.start, Cfg.CHAIN_DEPTH)!!
@@ -273,7 +267,8 @@ fun dayReport(ctx: Context, day: ZonedDateTime, diary: Map<String, SubScore>? = 
         d0.toLocalDate(), d0.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH), ctx.zone, ds.sunrise, ds.todayLord, noon.chain,
         Math.rint(avgOv).toInt(), verdictLabel(avgOv), Math.round(raw.getValue("overall") * 10) / 10.0, backdropLabel(areas.sumOf { it.D } / areas.size),
         areas, best2, weak2, lucky, unlucky, pins, usable.any { it.sunPin }, noon.bodies,
-        LuckyPlanet(luckyP, PLANET_THINGS.getValue(luckyP)), LuckyPlanet(stressP, PLANET_THINGS.getValue(stressP)),
+        LuckyPlanet(luckyP, PLANET_LORE.getValue(luckyP)), LuckyPlanet(stressP, PLANET_LORE.getValue(stressP)),
         best2.filter { sc(it) >= 60 }.map { def(it).goodFor }, weak2.filter { sc(it) <= 40 }.map { def(it).avoid }, personal,
+        luckyKit(d0.toLocalDate(), luckyP, secondP, stressP, ds.todayLord, areas),
     )
 }

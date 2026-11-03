@@ -45,6 +45,7 @@ fun TodayScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
         }
         item { Hero(r) }
         item { Timeline(r) }
+        item { LuckyCard(r, hr) }
         item { SectionTitle("Life areas", Modifier.padding(top = 4.dp)) }
         items(r.areas.sortedByDescending { it.score }, key = { it.key }) { AreaRow(it, r) }
         item { Guidance(r) }
@@ -168,17 +169,6 @@ private fun Guidance(r: DayReport) = KpCard {
     SectionTitle("Good for · Be careful with")
     Text("Good for: " + r.goodFor.joinToString("; ").ifEmpty { "routine work; no area stands out" }, style = MaterialTheme.typography.bodyMedium)
     Text("Be careful with: " + r.beCareful.joinToString("; ").ifEmpty { "nothing special" }, style = MaterialTheme.typography.bodyMedium)
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Dot(KpColors.Good); Spacer(Modifier.width(8.dp))
-        Text("Lucky planet ${r.luckyPlanet.planet} · ${r.luckyPlanet.thing.colour} · number ${r.luckyPlanet.thing.number} · ${r.luckyPlanet.thing.direction}",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Dot(KpColors.Bad); Spacer(Modifier.width(8.dp))
-        Text("Go easy on ${r.stressPlanet.planet} energy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    Text("Traditional correspondences – not from the KP Readers", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
