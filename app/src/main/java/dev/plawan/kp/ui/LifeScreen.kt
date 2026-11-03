@@ -204,9 +204,9 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text("Dasa–Bhukti–Anthra: " + candidate.chains.joinToString(" / ") { it.joinToString("–") },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Sun: ${candidate.moonCrossings.size} · Moon: ${candidate.sunConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
+                Text("Sun: ${candidate.sunTriggers.size} · Moon: ${candidate.moonConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Sensitive zone: " + candidate.moonCrossings.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
+                Text("Sensitive zone: " + candidate.sunTriggers.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (timing.monthly.size > 24) Text("+${timing.monthly.size - 24} additional candidate months",

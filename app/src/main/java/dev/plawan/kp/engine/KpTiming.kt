@@ -22,8 +22,8 @@ data class ExactWindow(
 data class MonthCandidate(
     val month: YearMonth,
     val chains: List<List<String>>,
-    val moonCrossings: List<ExactWindow>,
-    val sunConfirmations: List<ExactWindow>,
+    val sunTriggers: List<ExactWindow>,
+    val moonConfirmations: List<ExactWindow>,
     val jupiterConfirmations: List<ExactWindow>,
     val periodLordConfirmations: List<ExactWindow>,
 )
