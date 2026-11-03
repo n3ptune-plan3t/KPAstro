@@ -6,7 +6,7 @@ KP (Krishnamurti Paddhati) app. The KP engine and its rule catalogue remain on-d
 
 1. **Profile** — enter birth date, local birth time, birth time zone and birth-place coordinates. The calculation location can be the birth place or a separate current place.
 2. **Today** — see the daily overview, favourable/caution windows, hora and life-area summary.
-3. **Forecast** — explore life-event promises, periods and exact timing. Expand an event to inspect its rule and Reader source.
+3. **Forecast** — inspect event promises, Dasa–Bhukti–Anthra periods and month-level transit windows. Expand an event to inspect its rule and Reader source.
 4. **Chart** — inspect the natal chart, planets, cusps, Vimshottari periods and birth-time sensitivity.
 5. **Profile** — edit the saved birth details or calculation location at any time.
 
@@ -43,3 +43,7 @@ Run `sh tools/host-check/run.sh` with a JDK that includes native headers, `gcc`,
 ## Reader-sourced rule catalogue
 
 The rule catalogue currently contains 56 events. Every astrology rule must remain traceable to `kp-readers/` with a book and OCR line reference. Do not add or alter rule logic without checking the source passages. The app's rules asset is the only canonical rule catalogue. Regression tests read it directly.
+
+## Retrospective timing validation
+
+The Kotlin host-check runs a small, manually curated celebrity-marriage benchmark from public Astro-Databank records. It retains source URLs and Rodden ratings, reports whether the actual event month appears among Moon-triggered candidates, and reports candidate-month density as a rough random-month baseline. This is exploratory retrospective analysis, not proof of predictive validity; the benchmark is not used to tune the rules. See `tools/validation/README.md`.

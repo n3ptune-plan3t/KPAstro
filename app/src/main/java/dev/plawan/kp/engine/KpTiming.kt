@@ -228,10 +228,10 @@ fun exactTimes(
         return EventTiming(rule, pr, emptyList(), emptyList())
     }
     val useDepth = if (depth >= 3) 3 else 2
-    val broad = scan(ch, rule, from, to, useDepth)
     val anchor = near ?: from
-    val hits = dashaHits(ch, rule, from, to, useDepth)
-        .filter { it.end.isAfter(anchor) }
+    val scanFrom = maxOf(from, anchor)
+    val broad = scan(ch, rule, scanFrom, to, useDepth)
+    val hits = dashaHits(ch, rule, scanFrom, to, useDepth)
         .sortedBy { it.start }
         .take(cfg.maxPeriods)
     val raw = ArrayList<ExactWindow>()

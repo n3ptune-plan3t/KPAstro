@@ -14,4 +14,4 @@ mkdir -p "$O"
     swisseph/swedate.c swisseph/swejpl.c swisseph/swemmoon.c swisseph/swemplan.c swisseph/swehel.c -lm
 )
 kotlinc "$R"/app/src/main/java/dev/plawan/kp/engine/*.kt "$H/GoldenCheck.kt" -d "$O/check.jar" -include-runtime
-java -Djava.library.path="$O" -cp "$O/check.jar" GoldenCheckKt "$H/golden.json" "$R/app/src/main/assets/rules.json"
+java -Djava.library.path="$O" -cp "$O/check.jar" GoldenCheckKt "$H/golden.json" "$R/app/src/main/assets/rules.json" "$R/tools/validation/celebrity-marriages.json"

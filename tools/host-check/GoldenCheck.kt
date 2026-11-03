@@ -11,6 +11,42 @@ fun inst(o: Any?) = OffsetDateTime.parse(o as String).toInstant()
 fun sec(a: Instant, b: Instant) = Math.abs(Duration.between(a, b).seconds)
 fun wins(o: Any?) = l(o).map { l(it) }
 
+@Suppress("UNCHECKED_CAST")
+fun runCelebrityBenchmark(path: String, rules: Map<String, Rule>) {
+    val root = m(MiniJson.parse(java.io.File(path).readText()))
+    val cases = l(root["cases"]).map { m(it) }
+    val cfg = ExactCfg(moonStepMin = 60, sunStepMin = 360, fastStepMin = 720,
+        slowStepMin = 1440, maxPeriods = 10000, maxHits = 10000)
+    val results = cases.map { c ->
+        val birth = OffsetDateTime.parse(c["birth_datetime"] as String)
+        val eventMonth = YearMonth.from(LocalDate.parse(c["event_date"] as String))
+        val chart = computeChart(birth.toInstant(), d(c["latitude"]), d(c["longitude"]))
+        val end = eventMonth.plusMonths(1).atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+        val result = exactTimes(chart, rules.getValue(c["rule"] as String), chart.dtUtc, end,
+            depth = 3, cfg = cfg, near = chart.dtUtc, zone = ZoneOffset.UTC)
+        val months = result.monthly.map { it.month }.distinct()
+        val horizon = (java.time.temporal.ChronoUnit.MONTHS.between(
+            YearMonth.from(chart.dtUtc.atZone(ZoneOffset.UTC)), eventMonth) + 1).coerceAtLeast(1)
+        val hit = eventMonth in months
+        val density = months.size.toDouble() / horizon
+        val nearest = months.minOfOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.MONTHS.between(it, eventMonth)) }
+        println("CELEBRITY " + c["name"] + " promise=" + result.promise.verdict +
+            " eventMonth=" + eventMonth + " hit=" + hit + " candidates=" + months.size + "/" + horizon +
+            " density=" + "%.4f".format(density) + " nearestDelta=" + nearest)
+        Triple(c["cohort"] as String, hit, density)
+    }
+    for (cohort in listOf("primary", "secondary")) {
+        val group = results.filter { it.first == cohort }
+        if (group.isNotEmpty()) {
+            val hits = group.count { it.second }
+            println("CELEBRITY_SUMMARY cohort=" + cohort + " n=" + group.size + " hits=" + hits +
+                " hitRate=" + "%.3f".format(hits.toDouble() / group.size) +
+                " meanCandidateDensity=" + "%.4f".format(group.map { it.third }.average()))
+        }
+    }
+    println("BENCHMARK_NOTE: retrospective exploratory data; candidate density is the rough random-month baseline. No pass threshold; do not tune rules against this same sample.")
+}
+
 fun main(args: Array<String>) {
     val g = m(MiniJson.parse(java.io.File(args[0]).readText()))
     val rules = parseRules(java.io.File(args[1]).readText())
@@ -115,5 +151,6 @@ fun main(args: Array<String>) {
         emptyList(), listOf(old, upcoming))
     ok(bestExact(event, scanStart) == upcoming, "bestExact prefers an upcoming window")
     ok(nextExact(event, scanStart) == upcoming, "nextExact chooses earliest upcoming window")
+    if (args.size > 2) runCelebrityBenchmark(args[2], rules)
     println("checks=$checks fails=$fails"); if (fails > 0) System.exit(1)
 }
