@@ -31,7 +31,7 @@ fun runCelebrityBenchmark(path: String, rules: Map<String, Rule>) {
         val density = months.size.toDouble() / horizon
         val nearest = months.minOfOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.MONTHS.between(it, eventMonth)) }
         println("CELEBRITY " + c["name"] + " promise=" + result.promise.verdict +
-            " eventMonth=" + eventMonth + " hit=" + hit + " candidates=" + months.size + "/" + horizon +
+            " eventMonth=" + eventMonth + " csl=" + result.promise.cuspSubLord + " support=" + result.promise.support + " denial=" + result.promise.denial + " hit=" + hit + " candidates=" + months.size + "/" + horizon +
             " density=" + "%.4f".format(density) + " nearestDelta=" + nearest)
         Triple(c["cohort"] as String, hit, density)
     }

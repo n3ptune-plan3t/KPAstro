@@ -274,15 +274,15 @@ fun exactTimes(
     val monthly = sunHits.groupBy(::monthOf).entries
         .sortedBy { it.key }
         .take(cfg.maxHits)
-        .map { (month, moons) ->
+        .map { (month, suns) ->
             val inMonth = raw.filter { monthOf(it) == month }
-            val moon = inMonth.filter { it.body == "Moon" && moons.any { s -> sameMonthAndPoint(s, it) } }
+            val moon = inMonth.filter { it.body == "Moon" && suns.any { s -> sameMonthAndPoint(s, it) } }
             val jupiter = inMonth.filter { it.body == "Jupiter" && moons.any { s -> sameMonthAndPoint(s, it) } }
             val period = inMonth.filter {
                 it.body !in setOf("Moon", "Sun", "Jupiter") &&
                     moons.any { s -> sameMonthAndPoint(s, it) }
             }
-            MonthCandidate(month, moons.map { it.chain }.distinct(), moons.distinct(),
+            MonthCandidate(month, suns.map { it.chain }.distinct(), suns.distinct(),
                 moon.distinct(), jupiter.distinct(), period.distinct())
         }
     return EventTiming(rule, pr, broad, emptyList(), monthly)
