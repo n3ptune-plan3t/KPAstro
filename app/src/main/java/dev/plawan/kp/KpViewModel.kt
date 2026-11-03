@@ -3,7 +3,8 @@ package dev.plawan.kp
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dev.plawan.kp.data.ProfileStore
+import dev.plawan.kp.data.KpRepository
+import dev.plawan.kp.domain.KpAnalysis
 import dev.plawan.kp.engine.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,12 +16,13 @@ import java.time.Instant
 import java.time.LocalDate
 
 class KpViewModel(app: Application) : AndroidViewModel(app) {
-    private val store = ProfileStore(app)
-    private val rules = parseRules(app.assets.open("rules.json").bufferedReader().use { it.readText() })
+    private val repository = KpRepository(app)
+    private val analysis = KpAnalysis()
+    private val rules = repository.loadRules()
     private val mutex = Mutex()
     private val timingMutex = Mutex()
 
-    val profile = MutableStateFlow(store.load())
+    val profile = MutableStateFlow(repository.loadProfile())
     val context = MutableStateFlow<Context?>(null)
     val date = MutableStateFlow(LocalDate.now())
     val report = MutableStateFlow<DayReport?>(null)
@@ -35,55 +37,103 @@ class KpViewModel(app: Application) : AndroidViewModel(app) {
 
     init { profile.value?.let { rebuild(it) } }
 
-    fun saveProfile(p: Profile) { store.save(p); profile.value = p; rebuild(p) }
-
-    private fun rebuild(p: Profile) = viewModelScope.launch {
-        error.value = null; life.value = null; lifeSpan.value = null; tolerance.value = null; report.value = null
-        timings.value = emptyMap(); timingBusy.value = emptySet()
-        runCatching { withContext(Dispatchers.Default) { mutex.withLock { Context(p, rules) } } }
-            .onSuccess { context.value = it; loadDay() }.onFailure { error.value = it.message ?: it.toString() }
+    fun saveProfile(p: Profile) {
+        repository.saveProfile(p)
+        profile.value = p
+        rebuild(p)
     }
 
-    fun shiftDay(delta: Long) { date.value = date.value.plusDays(delta); loadDay() }
-    fun today() { date.value = LocalDate.now(); loadDay() }
+    private fun rebuild(p: Profile) = viewModelScope.launch {
+        error.value = null
+        life.value = null
+        lifeSpan.value = null
+        tolerance.value = null
+        report.value = null
+        hora.value = null
+        timings.value = emptyMap()
+        timingBusy.value = emptySet()
+        runCatching {
+            withContext(Dispatchers.Default) {
+                mutex.withLock { repository.createContext(p, rules) }
+            }
+        }.onSuccess {
+            context.value = it
+            loadDay()
+        }.onFailure {
+            error.value = it.message ?: it.toString()
+        }
+    }
+
+    fun shiftDay(delta: Long) {
+        date.value = date.value.plusDays(delta)
+        loadDay()
+    }
+
+    fun today() {
+        date.value = LocalDate.now()
+        loadDay()
+    }
 
     fun loadDay() = viewModelScope.launch {
         val ctx = context.value ?: return@launch
-        val d = date.value
+        val requestedDate = date.value
         loadingDay.value = true
-        runCatching { withContext(Dispatchers.Default) { mutex.withLock { val at = d.atTime(12, 0).atZone(ctx.zone); dayReport(ctx, at) to horaReport(ctx, at) } } }
-            .onSuccess { if (d == date.value) { report.value = it.first; hora.value = it.second } }.onFailure { error.value = it.message ?: it.toString() }
+        runCatching {
+            withContext(Dispatchers.Default) {
+                mutex.withLock { analysis.day(ctx, requestedDate) }
+            }
+        }.onSuccess {
+            if (requestedDate == date.value) {
+                report.value = it.first
+                hora.value = it.second
+            }
+        }.onFailure {
+            error.value = it.message ?: it.toString()
+        }
         loadingDay.value = false
     }
 
     fun loadLife() = viewModelScope.launch {
         val ctx = context.value ?: return@launch
         if (life.value != null) return@launch
-        val now = Instant.now()
-        val (span, rep) = withContext(Dispatchers.Default) { mutex.withLock {
-            val r = lifeRange(ctx.chart, now); r to lifeReport(ctx.chart, ctx.rules, now = now, range = r) } }
-        lifeSpan.value = span; life.value = rep
+        runCatching {
+            withContext(Dispatchers.Default) {
+                mutex.withLock { analysis.life(ctx, Instant.now()) }
+            }
+        }.onSuccess {
+            lifeSpan.value = it.first
+            life.value = it.second
+        }.onFailure {
+            error.value = it.message ?: it.toString()
+        }
     }
 
     fun loadTolerance() = viewModelScope.launch {
         val ctx = context.value ?: return@launch
         if (tolerance.value != null) return@launch
-        tolerance.value = withContext(Dispatchers.Default) { mutex.withLock { birthTimeTolerance(ctx.chart.dtUtc, ctx.chart.lat, ctx.chart.lon, 60) } }
+        runCatching {
+            withContext(Dispatchers.Default) {
+                mutex.withLock { analysis.birthTimeTolerance(ctx) }
+            }
+        }.onSuccess { tolerance.value = it }
+            .onFailure { error.value = it.message ?: it.toString() }
     }
 
-    // Exact Jupiter/Sun/Moon/Lagna timing for one event, computed lazily when the user expands
-    // its card (Reader 5 ~l.9970-10040 funnel in KpTiming.exactTimes, depth 3). The scan runs on
-    // its own mutex so a long antara sweep never blocks loadDay/loadLife on `mutex`.
+    /** Calculate exact event timing lazily; keep long scans off the day/life mutex. */
     fun loadEventTiming(key: String) = viewModelScope.launch {
         val ctx = context.value ?: return@launch
-        val sp = lifeSpan.value ?: return@launch
+        val range = lifeSpan.value ?: return@launch
         if (timings.value.containsKey(key) || key in timingBusy.value) return@launch
         timingBusy.value = timingBusy.value + key
-        runCatching { withContext(Dispatchers.Default) { timingMutex.withLock {
-            exactTimes(ctx.chart, ctx.rules.getValue(key), sp.start, sp.end, ctx.lat, ctx.lon, 3, UI_EXACT_CFG, near = Instant.now())
-        } } }
-            .onSuccess { if (context.value === ctx) timings.value = timings.value + (key to it) }
-            .onFailure { error.value = it.message ?: it.toString() }
+        runCatching {
+            withContext(Dispatchers.Default) {
+                timingMutex.withLock { analysis.eventTiming(ctx, key, range) }
+            }
+        }.onSuccess {
+            if (context.value === ctx) timings.value = timings.value + (key to it)
+        }.onFailure {
+            error.value = it.message ?: it.toString()
+        }
         timingBusy.value = timingBusy.value - key
     }
 }

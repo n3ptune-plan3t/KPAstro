@@ -153,7 +153,7 @@ fun Loading(text: String = "Reading the sky…") = Box(Modifier.fillMaxSize(), c
 
 // ------------------------------------------------------------------ nav icons (dependency-free)
 
-enum class KpNav { Today, Life, Chart, Setup }
+enum class KpNav { Today, Forecast, Chart, Profile }
 
 @Composable
 fun KpNavIcon(kind: KpNav, tint: Color) {
@@ -169,7 +169,7 @@ fun KpNavIcon(kind: KpNav, tint: Color) {
                         Offset(w / 2 + (r2 * cos(a)).toFloat(), h / 2 + (r2 * sin(a)).toFloat()), sw, StrokeCap.Round)
                 }
             }
-            KpNav.Life -> {
+            KpNav.Forecast -> {
                 val path = Path(); val cx = w / 2; val cy = h / 2; val outer = w * 0.46f; val inner = w * 0.19f
                 for (i in 0 until 10) {
                     val ang = -PI / 2 + i * PI / 5; val rad = if (i % 2 == 0) outer else inner
@@ -183,7 +183,7 @@ fun KpNavIcon(kind: KpNav, tint: Color) {
                 val p = Path(); p.moveTo(w / 2, h * 0.12f); p.lineTo(w * 0.88f, h / 2); p.lineTo(w / 2, h * 0.88f); p.lineTo(w * 0.12f, h / 2); p.close()
                 drawPath(p, tint, style = stroke)
             }
-            KpNav.Setup -> {
+            KpNav.Profile -> {
                 for (i in 0 until 3) {
                     val y = h * (0.25f + i * 0.25f)
                     drawLine(tint, Offset(w * 0.14f, y), Offset(w * 0.86f, y), sw, StrokeCap.Round)

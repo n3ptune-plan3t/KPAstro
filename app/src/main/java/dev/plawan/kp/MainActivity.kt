@@ -28,36 +28,56 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val TABS = listOf(KpNav.Today to "Today", KpNav.Life to "Life", KpNav.Chart to "Chart", KpNav.Setup to "Setup")
+private data class Destination(val icon: KpNav, val label: String)
+
+private val DESTINATIONS = listOf(
+    Destination(KpNav.Today, "Today"),
+    Destination(KpNav.Forecast, "Forecast"),
+    Destination(KpNav.Chart, "Chart"),
+    Destination(KpNav.Profile, "Profile"),
+)
 
 @Composable
 fun App(vm: KpViewModel) {
     val profile by vm.profile.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    val current = if (profile == null) 3 else tab
+    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    // A first-time user must create a birth profile before the chart-based
+    // destinations are available. Returning users can edit it from Profile.
+    val activeIndex = if (profile == null) DESTINATIONS.lastIndex else selectedIndex
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (profile != null) NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                TABS.forEachIndexed { i, (icon, label) ->
-                    val selected = current == i
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { tab = i },
-                        icon = { KpNavIcon(icon, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                        label = { Text(label) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    )
+            if (profile != null) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                    DESTINATIONS.forEachIndexed { index, destination ->
+                        val selected = activeIndex == index
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { selectedIndex = index },
+                            icon = {
+                                KpNavIcon(
+                                    destination.icon,
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            label = { Text(destination.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            ),
+                        )
+                    }
                 }
             }
         },
-    ) { pad ->
-        val m = Modifier.padding(pad)
-        when (current) {
-            0 -> TodayScreen(vm, m)
-            1 -> LifeScreen(vm, m)
-            2 -> ChartScreen(vm, m)
-            else -> SettingsScreen(vm, m, onSaved = { tab = 0 })
+    ) { padding ->
+        val contentModifier = Modifier.padding(padding)
+        when (activeIndex) {
+            0 -> TodayScreen(vm, contentModifier)
+            1 -> LifeScreen(vm, contentModifier)
+            2 -> ChartScreen(vm, contentModifier)
+            else -> SettingsScreen(vm, contentModifier, onSaved = { selectedIndex = 0 })
         }
     }
 }
