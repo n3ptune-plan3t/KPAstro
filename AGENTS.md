@@ -20,3 +20,8 @@ building is done by the user via GitHub Actions.
 
 Do NOT install or download any programs, packages, or apps without asking first.
 If a tool is needed, ask the user for permission.
+
+
+## Engine and regression policy
+
+The Kotlin implementation under `app/src/main/java/dev/plawan/kp/engine/` is the sole engine implementation. Do not add or restore a Python reference engine, Python golden generator, or Python runtime dependency. Keep regression fixtures in `tools/host-check/golden.json`; host-check must compile and test Kotlin directly against the app's canonical `app/src/main/assets/rules.json`. Do not regenerate or rewrite fixtures automatically in CI.

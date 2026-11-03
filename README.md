@@ -20,7 +20,7 @@ A first-time user is taken directly to Profile. After saving, the app opens Toda
 - `data/KpRepository.kt` — profile and rule-catalogue data boundary. The current implementation reads SharedPreferences and the bundled rules asset; remote sources can later be introduced here.
 - `data/ProfileStore.kt` — local profile persistence.
 - `engine/` — pure Kotlin KP calculation port (`KpCore`, `KpRules`, `KpDaily`, `KpTiming`, and related files). This is the calculation source of truth.
-- `assets/rules.json` — event rules, kept identical to `tools/reference/rules.json`.
+- `assets/rules.json` — the single canonical event-rule catalogue used by the app and regression tests.
 - `cpp/` — JNI bridge and vendored Swiss Ephemeris (Moshier).
 
 ## Network and privacy boundary
@@ -35,10 +35,11 @@ The Profile screen can also request Android's runtime coarse/fine location permi
 2. Let it sync (it fetches Gradle 8.9 from `gradle-wrapper.properties`; run `gradle wrapper` once if you want `./gradlew`).
 3. Run on a device/emulator (minSdk 26).
 
-## Validate the port against the Python reference
+## Kotlin regression checks
 
-`tools/host-check/run.sh` builds `libkpswe.so` for the host, compiles the engine with `kotlinc` and compares ~355 values with `tools/reference/golden.json`, which `gen_golden.py` produces from the Python engine (`pip install pyswisseph`). Needs a JDK with headers and `kotlinc` on PATH. Golden also carries five deterministic `sensitivePoints` chains; exact transit windows are not in golden yet.
+Run `sh tools/host-check/run.sh` with a JDK that includes native headers, `gcc`, and `kotlinc` on PATH. The script builds the host JNI library, compiles the Kotlin engine, and compares chart, dasha, promise, timing, daily, hora and birth-time-sensitivity outputs against the checked-in fixture at `tools/host-check/golden.json`. The fixture is a reviewed regression baseline; CI does not regenerate it automatically. Update it only alongside an explicitly reviewed change to expected engine behaviour.
+
 
 ## Reader-sourced rule catalogue
 
-The rule catalogue currently contains 56 events. Every astrology rule must remain traceable to `kp-readers/` with a book and OCR line reference. Do not add or alter rule logic without checking the source passages. The app's rules asset and Python reference copy must remain byte-for-byte identical.
+The rule catalogue currently contains 56 events. Every astrology rule must remain traceable to `kp-readers/` with a book and OCR line reference. Do not add or alter rule logic without checking the source passages. The app's rules asset is the only canonical rule catalogue. Regression tests read it directly.

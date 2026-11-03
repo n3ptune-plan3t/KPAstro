@@ -1,39 +1,31 @@
 # KP Astro — Handover (branch `deepseek`)
 
-_Last updated: 2026-10-20. Supersedes `tools/reference/HANDOFF.md` for current state; that file still holds the detailed engine rationale._
+_Last updated: 2026-11-03. This file is the current project handover; older session notes below are historical records._
 
 ## What this project is
 
-Android-only, fully offline, open-source KP (Krishnamurti Paddhati) astrology app.
-The astrology engine is a faithful port of a Python reference (`tools/reference/kp_core.py`,
-`kp_rules.py`, `kp_daily.py`) to Kotlin (`app/src/main/java/dev/plawan/kp/engine/`).
-Swiss Ephemeris (Moshier, KP ayanamsa) is vendored in C and exposed via JNI (`cpp/`).
+Android-only, open-source KP (Krishnamurti Paddhati) astrology app. Kotlin is the sole implementation of the calculation engine. Swiss Ephemeris Moshier is vendored in C and exposed through JNI; the Android app and host regression tests both execute the same Kotlin engine.
 
-## Hard rules (also in `AGENTS.md`)
+## Hard rules
 
-1. **All astrology rules/logic MUST come from `kp-readers/`** (KP Readers 1-6, KP E-Zine
-   compilations, KP Navaratnamala, KP Sublord SPK, Astrology for Beginners, Jyotish Astro
-   Secrets & KP). Never invent or guess a rule. Cite the book + OCR line(s).
-2. **Work on the `deepseek` branch only.** Never touch `main`/`master`.
-3. **Do NOT build or compile here.** The user builds via GitHub Actions.
-4. **Do NOT install/download anything** without asking the user first.
+1. Astrology rules and logic MUST come from the reference texts in `kp-readers/`. Cite the book and OCR lines for every rule change.
+2. Work on the `deepseek` branch only. Never edit `main` or `master`.
+3. Do NOT build or compile in this environment. The user builds through GitHub Actions.
+4. Do NOT install or download programs or packages without asking first.
+5. Kotlin is the only engine implementation. Do not reintroduce Python engine files, Python golden generation, or Python CI dependencies.
 
-## Repo layout
+## Current repository layout
 
-- `app/src/main/java/dev/plawan/kp/engine/` — `KpCore.kt` (ephemeris, houses, star/sub/sub-sub
-  lords, significators, node agency, Vimshottari, sunrise day-lord, ruling planets),
-  `KpRules.kt` (promise, dasha-window scan, Moon windows, transit pinning, diary, birth-time
-  tolerance), `KpDaily.kt` (per-30-min slot scoring, lucky/avoid windows, day report),
-  `KpTiming.kt` (exact DBA + luminary/Lagna event timing), `SweNative.kt`/`MiniJson.kt`
-  (deps-free facade/parser).
-- `app/src/main/assets/rules.json` — event rules read by the app (**keep identical** to
-  `tools/reference/rules.json`).
-- `tools/reference/` — Python reference (`kp_core.py`, `kp_rules.py`, `kp_daily.py`,
-  `kp_timing.py`, `kp_hora.py`) + `rules.json`, `golden.json`, `gen_golden.py`,
-  `HANDOFF.md` (engine rationale), `profile.json`.
-- `tools/host-check/` — `GoldenCheck.kt` + `run.sh`; compares the Kotlin port to
-  `golden.json` (~355 values). Needs JDK headers, `kotlinc`, `pyswisseph` to regen.
-- `kp-readers/` — the reference texts (**untracked in git**).
+- `app/src/main/java/dev/plawan/kp/engine/` — Kotlin calculation engine (`KpCore`, `KpRules`, `KpDaily`, `KpTiming`, `KpHora`, JNI facade and JSON parser).
+- `app/src/main/assets/rules.json` — sole canonical event-rule catalogue.
+- `app/src/main/cpp/` — JNI bridge and vendored Swiss Ephemeris.
+- `tools/host-check/GoldenCheck.kt` and `run.sh` — compile and test the Kotlin engine on the host.
+- `tools/host-check/golden.json` — checked-in regression fixture; it is not generated during CI.
+- `kp-readers/` — source texts used to verify astrological rules (when present in the working repository).
+
+## Validation
+
+Run `sh tools/host-check/run.sh` in the owner's environment with a JDK including native headers, `gcc`, and `kotlinc`. GitHub Actions runs this same Kotlin-only host check and the Android APK build. The regression fixture is intentionally frozen: update it only when an expected behaviour change has been reviewed against the source texts and the corresponding test changes are committed.
 
 ## Session progress (2026-10-16)
 
@@ -357,3 +349,13 @@ No build and no install were run. Work is on the `deepseek` branch.
 - Marked first_government_job partial because its cited E-Zine condition also mentions a Sun/Moon connection not yet separately modelled.
 - Dasha-chain eligibility remains an explicitly documented engine heuristic: each period lord must signify at least one event-support house, and the chain union must cover the primary house and at least two distinct support houses (or one for any_support rules). These thresholds are not claimed as universal KP doctrine.
 - Regenerate golden.json and run host-check; no build or compile was run here.
+
+
+### Session 15 (2026-11-03): remove Python reference implementation
+
+- Deleted all Python engine modules and the Python golden generator. Removed the Python-only profile sample, duplicate rules catalogue, and obsolete Python handoff.
+- Moved the checked-in golden regression fixture to `tools/host-check/golden.json`. The Kotlin host test reads the app's single canonical rules asset directly.
+- Reworked `tools/host-check/run.sh` to compile Kotlin with strict failure handling; Kotlin compiler errors can no longer be swallowed by a pipeline.
+- Simplified GitHub Actions to two independent jobs: Android APK build/release and Kotlin host regression. Removed Python setup, pyswisseph installation, golden regeneration, and commit-back.
+- Regression fixtures are now reviewed, checked-in baselines. No Python runtime or development dependency remains in the project.
+- No build/compile was run here, per AGENTS.md.
