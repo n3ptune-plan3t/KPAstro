@@ -21,7 +21,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val MONTH = DateTimeFormatter.ofPattern("MMM yyyy")
-private val DAYTIME = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
 
 @Composable
 fun LifeScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
@@ -175,8 +174,8 @@ private fun zoneLabel(p: SensitivePoint) =
 
 @Composable
 private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean) {
-    Text("Exact times · Jupiter, Sun, Moon, Lagna", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    Text("The running dasha–bhukti–antara lords define the sensitive zone. The Sun/Moon/Lagna funnel is shown at day/hour/minute scale; period-lord crossings are coarse 6- or 12-hour scans, not month-level event dates.",
+    Text("Month-level transit timing", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    Text("A month is listed only when a qualifying Dasa–Bhukti–Anthra is active and the Sun or one of its period lords crosses the corresponding KP sign/star/sub zone. This is a month-level astrological window, not a guarantee that an event will occur.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when {
         e.promise.verdict !in listOf("strong", "promised") ->
@@ -191,27 +190,22 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
             }
         timing == null ->
             Text("Computing the exact times…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        timing.exact.isEmpty() ->
-            Text("No crossing of the promised zones by Jupiter, the Sun, the Moon or the Lagna inside the scanned dasha periods.",
+        timing.monthly.isEmpty() ->
+            Text("No qualifying month-level transit was found inside the scanned Dasa–Bhukti–Anthra periods.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> {
-            val best = bestExact(timing, now)
-            val shown = timing.exact.take(40)
-            shown.forEach { w ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Pill(w.body)
-                    Spacer(Modifier.width(6.dp))
-                    Text(DAYTIME.format(w.start.atZone(zone)) + " – " + DAYTIME.format(w.end.atZone(zone)),
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    if (w == best) { Spacer(Modifier.width(6.dp)); Pill("next best", KpColors.Good, filled = true) }
-                }
-                Text(w.chain.joinToString("–") + " · " + zoneLabel(w.point) + " · " + w.precision + " · strength " + w.strength +
-                    (if (w.end.isBefore(now)) " · past" else if (w.start.isBefore(now)) " · running now" else ""),
+            timing.monthly.take(24).forEach { candidate ->
+                Text(candidate.month.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("Dasa–Bhukti–Anthra: " + candidate.chains.joinToString(" / ") { it.joinToString("–") },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Transit triggers: " + candidate.triggers.map { it.body }.distinct().joinToString(", ") +
+                    " · " + candidate.triggers.size + " crossing(s)",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (timing.exact.size > shown.size) Text("+${timing.exact.size - shown.size} more",
+            if (timing.monthly.size > 24) Text("+${timing.monthly.size - 24} additional candidate months",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text("Source (KP Readers): Reader 5 ~l.9970-10040 (sensitive zones), ~l.2535-2538 (Sun fixes the day), ~l.11170-11180 (Moon the hour, Lagna the minute).",
+            Text("Source: KP Reader 5, OCR lines 9900–10070 (249 sign/star/sub zones and running three-lord period); Reader 3, OCR lines 22850–22950 (worked example selecting the Anthra, Shookshma and transit month/date).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

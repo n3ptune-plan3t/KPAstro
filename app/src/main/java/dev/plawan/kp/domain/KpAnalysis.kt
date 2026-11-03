@@ -35,5 +35,6 @@ class KpAnalysis {
             3,
             UI_EXACT_CFG,
             near = near,
+            zone = context.zone,
         )
 }

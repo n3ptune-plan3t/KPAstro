@@ -55,33 +55,25 @@ fun promise(ch: Chart, rule: Rule): Promise {
     }.sorted()
     val den = (hs.intersect(rule.denial.toSet()) + starHs.intersect(rule.starDenial.toSet())).sorted()
     val requiredPresent = when (rule.promiseMode) {
-        "star_all" -> rule.starSupport.isNotEmpty() && starSup.size == rule.starSupport.distinct().size
+        "star_all" -> rule.starSupport.isNotEmpty() && starSup.containsAll(rule.starSupport)
         "star_sub_all" -> rule.starSupport.isNotEmpty() && rule.subSupport.isNotEmpty() &&
-            starSup.size == rule.starSupport.distinct().size && subSup.size == rule.subSupport.distinct().size
+            starSup.containsAll(rule.starSupport) && subSup.containsAll(rule.subSupport)
         else -> true
     }
     val hardStarDenial = starHs.intersect(rule.starDenial.toSet()).isNotEmpty()
-    val verdict = if (rule.promiseMode != "direct") {
-        when {
-            !requiredPresent || hardStarDenial -> "denied"
-            den.isNotEmpty() -> "mixed"
-            else -> "strong"
-        }
-    } else when {
-        rule.anySupport.isNotEmpty() -> when {
-            sup.isEmpty() -> "denied"
-            den.isEmpty() -> "strong"
-            sup.size > den.size -> "promised"
-            else -> "mixed"
-        }
-        sup.size == rule.support.size && den.isEmpty() -> "strong"
-        sup.size >= 2 && sup.size > den.size -> "promised"
-        sup.isNotEmpty() -> "mixed"
-        else -> "denied"
+    val hasAnySupport = sup.isNotEmpty()
+    val hasAnyDenial = den.isNotEmpty()
+    val verdict = when {
+        rule.promiseMode != "direct" && (!requiredPresent || hardStarDenial) -> "denied"
+        rule.promiseMode != "direct" && hasAnyDenial -> "mixed"
+        rule.promiseMode != "direct" -> "strong"
+        hasAnySupport && hasAnyDenial -> "mixed"
+        hasAnySupport -> "promised"
+        hasAnyDenial -> "denied"
+        else -> "insufficient"
     }
     return Promise(csl, hs.sorted(), sup, den, verdict)
 }
-
 // ------------------------------------------------------------------ 2. timing
 data class LordCheck(val planet: String, val support: List<Int>, val denial: List<Int>, val subLord: String, val permission: Boolean)
 
@@ -101,15 +93,13 @@ fun lordCheck(ch: Chart, planet: String, rule: Rule): LordCheck {
 }
 
 fun periodCheck(ch: Chart, rule: Rule, lords: List<String>): Pair<Boolean, List<LordCheck>> {
+    // KP timing is based on the joint period of event significators.
+    // Every lord in the running chain must itself signify at least one event house.
+    // No arbitrary union-size or "two houses covered" threshold is applied.
     val det = lords.map { lordCheck(ch, it, rule) }
-    val union = det.flatMap { it.support }.toSet()
-    val allHouses = lords.flatMap { housesOf(ch, it) }.toSet()
-    val need = if (rule.anySupport.isNotEmpty()) 1 else min(2, rule.support.size)
-    val ok = det.all { it.support.isNotEmpty() && it.permission } &&
-        rule.primary in (union + allHouses) && union.size >= need
+    val ok = det.isNotEmpty() && det.all { it.support.isNotEmpty() && it.permission }
     return ok to det
 }
-
 data class DashaWindow(
     val start: Instant, var end: Instant, val lords: MutableList<List<String>>,
     var parentActive: Boolean = true, val parents: MutableList<String> = mutableListOf(),
@@ -161,7 +151,7 @@ fun lifeRange(ch: Chart, now: Instant = Instant.now()): LifeRange {
 }
 
 // years > 0 keeps the old "now -> now+years" behaviour (golden check); range != null scans that span instead.
-fun lifeReport(ch: Chart, rules: Map<String, Rule>, years: Int = 20, now: Instant = Instant.now(), depth: Int = 2, range: LifeRange? = null): List<EventReport> {
+fun lifeReport(ch: Chart, rules: Map<String, Rule>, years: Int = 20, now: Instant = Instant.now(), depth: Int = 3, range: LifeRange? = null): List<EventReport> {
     val from = range?.start ?: now
     val end = range?.end ?: now.plusDays(365.25 * years)
     val base = rules.values.associate { r ->

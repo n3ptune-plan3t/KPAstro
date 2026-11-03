@@ -2,6 +2,9 @@ package dev.plawan.kp.engine
 
 import java.time.Duration
 import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 // Exact event timing (Reader 5 ~l.9970-10040, ~l.11170-11180; Reader 3 ~l.19160-19175).
 // When a promised Dasa-Bhukti-Antara (A-B-C) runs, the sensitive points are the rows of
@@ -19,12 +22,24 @@ data class ExactWindow(
     val rule: String, val strength: Int, val source: String,
 )
 
-data class EventTiming(val rule: Rule, val promise: Promise, val broad: List<DashaWindow>, val exact: List<ExactWindow>)
+data class MonthCandidate(
+    val month: YearMonth,
+    val chains: List<List<String>>,
+    val triggers: List<ExactWindow>,
+)
+
+data class EventTiming(
+    val rule: Rule,
+    val promise: Promise,
+    val broad: List<DashaWindow>,
+    val exact: List<ExactWindow>,
+    val monthly: List<MonthCandidate> = emptyList(),
+)
 
 data class ExactCfg(
-    val moonStepMin: Int = 15, val sunStepMin: Int = 30, val ascStepMin: Int = 1,
-    val fastStepMin: Int = 360, val slowStepMin: Int = 720,
-    val maxPeriods: Int = 24, val maxHits: Int = 120,
+    val moonStepMin: Int = 15, val sunStepMin: Int = 240, val ascStepMin: Int = 1,
+    val fastStepMin: Int = 120, val slowStepMin: Int = 360,
+    val maxPeriods: Int = 60, val maxHits: Int = 600,
 )
 
 val EXACT_CFG = ExactCfg()
@@ -34,7 +49,7 @@ val EXACT_CFG = ExactCfg()
 // book's "hour" precision (~l.11170-11180). EXACT_CFG stays as the reference default (parity with
 // tools/reference/kp_timing.py DEFAULT_CFG); no edge here is an analytic crossing either way.
 // Depth 3 periods are pratyantardasha (1-3 months), so 60 of them stay a second-scale sweep.
-val UI_EXACT_CFG = ExactCfg(moonStepMin = 45, sunStepMin = 60, maxPeriods = 60)
+val UI_EXACT_CFG = ExactCfg(moonStepMin = 15, sunStepMin = 240, fastStepMin = 120, slowStepMin = 360, maxPeriods = 60, maxHits = 600)
 
 private val SLOW_LORDS = setOf("Jupiter", "Saturn", "Rahu", "Ketu")
 private val NODE_BODY = if (RAHU_MEAN) Swe.MEAN_NODE else 11
@@ -196,25 +211,31 @@ private fun refineAsc(
     return if (out.isEmpty()) listOf(base) else out
 }
 
+/**
+ * Produce calendar-month candidates from the Reader 5 transit procedure.
+ *
+ * A candidate is emitted only inside a qualifying Dasa-Bhukti-Anthra and when
+ * a period lord or the Sun crosses a sign/star/sub combination belonging to
+ * that three-lord group. The app deliberately reports the month, not a false
+ * day/hour/minute certainty.
+ */
 fun exactTimes(
     ch: Chart, rule: Rule, from: Instant, to: Instant, lat: Double? = null, lon: Double? = null,
     depth: Int = 3, cfg: ExactCfg = EXACT_CFG, near: Instant? = null,
+    zone: ZoneId = ZoneOffset.UTC,
 ): EventTiming {
     val pr = promise(ch, rule)
-    if (pr.verdict != "strong" && pr.verdict != "promised") return EventTiming(rule, pr, emptyList(), emptyList())
-    val broad = scan(ch, rule, from, to, 2)
-    val useDepth = if (depth >= 3) 3 else 2
-    val allHits = dashaHits(ch, rule, from, to, useDepth)
-    // `near` keeps the periods closest to that instant instead of the earliest ones, so a
-    // birth-to-next-mahadasha scan still reports the times around today.
-    val anchor = near
-    val hits = if (anchor == null) allHits.take(cfg.maxPeriods)
-    else {
-        val n = requireNotNull(anchor)
-        allHits.sortedBy { Math.abs(Duration.between(n, it.start).toSeconds()) }
-            .take(cfg.maxPeriods).sortedBy { it.start }
+    if (pr.verdict !in setOf("strong", "promised", "mixed")) {
+        return EventTiming(rule, pr, emptyList(), emptyList())
     }
-    val out = LinkedHashSet<ExactWindow>()
+    val useDepth = if (depth >= 3) 3 else 2
+    val broad = scan(ch, rule, from, to, useDepth)
+    val anchor = near ?: from
+    val hits = dashaHits(ch, rule, from, to, useDepth)
+        .filter { it.end.isAfter(anchor) }
+        .sortedBy { it.start }
+        .take(cfg.maxPeriods)
+    val raw = ArrayList<ExactWindow>()
     for (p in hits) {
         val chain = p.lords.take(useDepth)
         val targets = sensitivePoints(chain, useDepth)
@@ -222,43 +243,38 @@ fun exactTimes(
         val strength = chain.sumOf { significatorRank(ch, it, rule.primary) }
         val s = maxOf(p.start, from)
         val e = minOf(p.end, to)
-        val source = (if (useDepth >= 3) THREE_LEVEL_SOURCE else TWO_LEVEL_SOURCE) + " " + LORD_SOURCE
-
-        val moon = scanLords(
-            "Moon", targets, s, e, cfg.moonStepMin, "hour", 3, chain, strength, rule.key, MOON_SOURCE,
-        ) { t -> lordsAt(Swe.lon(Swe.jd(t), Swe.MOON)) }
-        for (m in moon) out.addAll(refineAsc(m, targets, lat, lon, cfg))
-
-        val sun = scanLords(
-            "Sun", targets, s, e, cfg.sunStepMin, "day", 2, chain, strength, rule.key, SUN_SOURCE,
-        ) { t -> lordsAt(Swe.lon(Swe.jd(t), Swe.SUN)) }
-        for (d in sun) {
-            val inner = scanLords(
-                "Moon", targets, d.start, d.end, cfg.moonStepMin, "hour", 3, chain, strength, rule.key, MOON_SOURCE,
-            ) { t -> lordsAt(Swe.lon(Swe.jd(t), Swe.MOON)) }
-            if (inner.isEmpty()) out.addAll(refineAsc(d, targets, lat, lon, cfg))
-            else for (m in inner) out.addAll(refineAsc(m, targets, lat, lon, cfg))
-        }
-
-        for (lord in chain.distinct()) {
-            if (lord == "Sun" || lord == "Moon") continue
-            val slow = lord in SLOW_LORDS
-            val step = if (slow) cfg.slowStepMin else cfg.fastStepMin
-            val precision = if (slow) "coarse 12h scan" else "coarse 6h scan"
-            val rank = if (slow) 1 else 2
-            out.addAll(scanLords(
-                lord, targets, s, e, step, precision, rank, chain, strength, rule.key, source,
-            ) { t -> bodyLords(lord, Swe.jd(t)) })
+        val bodies = (chain + "Sun").distinct()
+        for (body in bodies) {
+            val step = when {
+                body == "Moon" -> cfg.moonStepMin
+                body == "Sun" -> cfg.sunStepMin
+                body in SLOW_LORDS -> cfg.slowStepMin
+                else -> cfg.fastStepMin
+            }
+            val src = if (body == "Sun") SUN_SOURCE else LORD_SOURCE
+            raw += scanLords(
+                body, targets, s, e, step, "month", if (body == "Sun") 2 else 1,
+                chain, strength, rule.key, THREE_LEVEL_SOURCE + " " + src,
+            ) { t -> bodyLords(body, Swe.jd(t)) }
         }
     }
-    val sorted = out.sortedWith(compareBy<ExactWindow> { it.start }.thenByDescending { it.rank }.thenBy { it.body })
-    val exact = if (anchor == null) sorted.take(cfg.maxHits)
-    else {
-        val n = requireNotNull(anchor)
-        sorted.sortedBy { Math.abs(Duration.between(n, it.start).toSeconds()) }
-            .take(cfg.maxHits).sortedBy { it.start }
+
+    val byMonth = LinkedHashMap<YearMonth, MutableList<ExactWindow>>()
+    for (hit in raw) {
+        var month = YearMonth.from(hit.start.atZone(zone))
+        val last = YearMonth.from(hit.end.minusNanos(1).atZone(zone))
+        while (!month.isAfter(last)) {
+            byMonth.getOrPut(month) { ArrayList() }.add(hit)
+            month = month.plusMonths(1)
+        }
     }
-    return EventTiming(rule, pr, broad, exact)
+    val monthly = byMonth.entries
+        .sortedBy { it.key }
+        .take(cfg.maxHits)
+        .map { (month, triggers) ->
+            MonthCandidate(month, triggers.map { it.chain }.distinct(), triggers.distinct())
+        }
+    return EventTiming(rule, pr, broad, emptyList(), monthly)
 }
 
 fun bestExact(t: EventTiming, near: Instant = Instant.now()): ExactWindow? {

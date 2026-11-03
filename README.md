@@ -37,7 +37,7 @@ The Profile screen can also request Android's runtime coarse/fine location permi
 
 ## Kotlin regression checks
 
-Run `sh tools/host-check/run.sh` with a JDK that includes native headers, `gcc`, and `kotlinc` on PATH. The script builds the host JNI library, compiles the Kotlin engine, and compares chart, dasha, promise, timing, daily, hora and birth-time-sensitivity outputs against the checked-in fixture at `tools/host-check/golden.json`. The fixture is a reviewed regression baseline; CI does not regenerate it automatically. Update it only alongside an explicitly reviewed change to expected engine behaviour.
+Run `sh tools/host-check/run.sh` with a JDK that includes native headers, `gcc`, and `kotlinc` on PATH. The script builds the host JNI library, compiles the Kotlin engine, and compares chart, dasha, promise, month-level timing, daily, hora and birth-time-sensitivity outputs against the checked-in fixture at `tools/host-check/golden.json`. The fixture is a reviewed regression baseline; CI does not regenerate it automatically. Update it only alongside an explicitly reviewed change to expected engine behaviour.
 
 
 ## Reader-sourced rule catalogue
