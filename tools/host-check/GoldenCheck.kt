@@ -91,6 +91,24 @@ fun main(args: Array<String>) {
             ok(mds[i].lords[0] == x[0], "$k md lord"); ok(sec(mds[i].start, inst(x[1])) <= 2 && sec(mds[i].end, inst(x[2])) <= 2, "$k md dates $i") }
     }
     val u = m(m(g["charts"])["user2000"]); val ch = computeChart(inst(u["dt"]), d(u["lat"]), d(u["lon"]))
+    ok(rules.size == 56, "all 56 canonical event rules are loaded")
+    val allowedStatuses = setOf("verified", "partial", "unverified")
+    val allowedModes = setOf("direct", "star_all", "star_sub_all")
+    for (rule in rules.values) {
+        val houses = listOf(rule.cusp, rule.primary) + rule.support + rule.denial +
+            rule.altSupport + rule.anySupport + rule.starSupport + rule.subSupport +
+            rule.starDenial + rule.subDenialOwners + rule.subDenialSignifies
+        ok(rule.cusp in 1..12 && rule.primary in 1..12 && houses.all { it in 1..12 },
+            "${rule.key} uses valid house numbers")
+        ok(rule.source.isNotBlank(), "${rule.key} retains source provenance")
+        ok(rule.status in allowedStatuses, "${rule.key} has an explicit audit status")
+        ok(rule.promiseMode in allowedModes, "${rule.key} uses a supported promise mode")
+        val evaluated = promise(ch, rule)
+        ok(evaluated.cuspSubLord == ch.cusps[rule.cusp - 1].subLord,
+            "${rule.key} promise evaluator reaches the configured cusp")
+        periodCheck(ch, rule, ch.planets.keys.take(3).toList())
+        ok(true, "${rule.key} period evaluator executes")
+    }
     for (rv in l(g["ruling"])) { val r = m(rv); val t = inst(r["at"]).atZone(ist); val rp = rulingPlanets(t, d(u["lat"]), d(u["lon"]))
         ok(rp.ordered == l(r["ordered"]) && rp.derived == l(r["derived"]) && rp.chain == m(r["chain"]), "ruling ${r["at"]}: ${rp.chain} vs ${r["chain"]}") }
     val now = ZonedDateTime.of(2026, 10, 15, 9, 0, 0, 0, ist).toInstant()
