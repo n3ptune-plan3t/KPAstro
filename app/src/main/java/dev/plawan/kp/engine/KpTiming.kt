@@ -52,6 +52,27 @@ private const val ASC_SOURCE =
 private const val LORD_SOURCE =
     "Engine convention (not a Reader rule): period-lord windows are sampled coarsely at 6-hour (fast) or 12-hour (slow) intervals. Reader 5 ~l.10026-10038 supports period-lord transits, but does not establish a universal slow-planet=month timing rule."
 
+/**
+ * Reader 5's 249 sensitive divisions. The Vimshottari star/sub table has 243 intervals;
+ * six intervals cross a sign boundary, so split those intervals to retain the correct
+ * sign lord on both sides. This is essential because the three-level trigger is the
+ * exact sign + star + sub combination (Reader 5 ~l.9970-10040).
+ */
+fun sensitiveZoneTable(): List<SensitivePoint> {
+    val out = LinkedHashSet<SensitivePoint>()
+    for (row in SUB_TABLE) {
+        var start = row.start
+        while (start < row.end) {
+            val signIndex = (start / 30.0).toInt().coerceIn(0, 11)
+            val signEnd = minOf(row.end, (signIndex + 1) * 30.0)
+            if (signEnd <= start) break
+            out.add(SensitivePoint(SIGN_LORDS[signIndex], row.star, row.sub))
+            start = signEnd
+        }
+    }
+    return out.toList()
+}
+
 fun sensitivePoints(lords: List<String>, depth: Int = 3): List<SensitivePoint> {
     val use = lords.take(if (depth >= 3) 3 else 2)
     if (use.isEmpty()) return emptyList()
@@ -59,10 +80,9 @@ fun sensitivePoints(lords: List<String>, depth: Int = 3): List<SensitivePoint> {
     when {
         use.size >= 3 -> {
             val need = use.groupingBy { it }.eachCount()
-            for (row in SUB_TABLE) {
-                val sign = SIGN_LORDS[(row.start / 30).toInt()]
-                if (listOf(sign, row.star, row.sub).groupingBy { it }.eachCount() == need)
-                    out.add(SensitivePoint(sign, row.star, row.sub))
+            for (point in sensitiveZoneTable()) {
+                if (listOf(point.sign, point.star, point.sub).groupingBy { it }.eachCount() == need)
+                    out.add(point)
             }
         }
         use.size == 2 -> {

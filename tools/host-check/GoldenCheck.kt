@@ -14,6 +14,7 @@ fun wins(o: Any?) = l(o).map { l(it) }
 fun main(args: Array<String>) {
     val g = m(MiniJson.parse(java.io.File(args[0]).readText()))
     val rules = parseRules(java.io.File(args[1]).readText())
+    ok(sensitiveZoneTable().size == 249, "Reader 5 has 249 sign/star/sub zones")
     for ((k, v) in m(g["sensitive"] ?: emptyMap<String, Any?>())) {
         val got = sensitivePoints(k.split("-")).map { listOf(it.sign, it.star, it.sub).joinToString("/") }
         ok(got == l(v).map { l(it).joinToString("/") }, "sensitive $k")

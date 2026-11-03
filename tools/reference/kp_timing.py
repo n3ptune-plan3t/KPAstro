@@ -48,8 +48,29 @@ LORD_SOURCE = (
 
 
 # ---------------------------------------------------------------- sensitive points
+def sensitive_zone_table():
+    """Return Reader 5's 249 sign/star/sub zones.
+
+    The 27x9 Vimshottari construction has 243 star/sub intervals. Six cross a
+    30-degree sign boundary and must be split because the sign lord changes there.
+    """
+    out = []
+    for start, end, star, sub in kp.SUB_TABLE:
+        pos = start
+        while pos < end:
+            sign_index = min(11, int(pos // 30))
+            sign_end = min(end, (sign_index + 1) * 30)
+            if sign_end <= pos:
+                break
+            point = (kp.SIGN_LORDS[sign_index], star, sub)
+            if point not in out:
+                out.append(point)
+            pos = sign_end
+    return out
+
+
 def sensitive_points(lords, depth: int = 3):
-    """depth 3 -> rows of the 249-sub table ruled by exactly the same group of lords;
+    """depth 3 -> exact sign/star/sub combinations from the 249-zone table;
     depth 2 -> ('*', star, sub) pairs, sign ignored (Reader 5 ~l.2626).
     Rahu/Ketu can be star or sub lords in the table, but never sign lords."""
     use = list(lords)[: 3 if depth >= 3 else 2]
@@ -58,8 +79,7 @@ def sensitive_points(lords, depth: int = 3):
     out = []
     if len(use) >= 3:
         need = Counter(use)
-        for start, _end, star, sub in kp.SUB_TABLE:
-            sign = kp.SIGN_LORDS[int(start // 30)]
+        for sign, star, sub in sensitive_zone_table():
             if Counter((sign, star, sub)) == need:
                 pt = (sign, star, sub)
                 if pt not in out:

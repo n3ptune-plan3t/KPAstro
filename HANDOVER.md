@@ -331,3 +331,10 @@ No build and no install were run. Work is on the `deepseek` branch.
 - bestExact now prefers upcoming windows before past windows; nextExact selects the earliest active/upcoming window, using precision only as a tie-breaker.
 - LifeScreen explains the coarse scan limitation. GoldenCheck adds synthetic entry/exit-boundary and upcoming-window selection checks.
 - No event rule, KP promise condition, natal chart calculation or daily score weight changed. Existing golden.json values should remain unchanged, but the host check must be run by the owner. No build or compile was run here.
+
+
+### Session 12 (2026-11-03): Reader 5 249-zone table correction
+
+- Reader 5 ~l.9970-10040 explicitly describes 249 sign/star/sub divisions. The generated Vimshottari star/sub table has 243 intervals; six cross a 30-degree sign boundary. The previous sensitive-point implementation assigned the sign lord only at each interval's start, losing the second sign segment.
+- KpTiming.kt and tools/reference/kp_timing.py now split every star/sub interval at sign boundaries before matching the exact three-lord group. This yields 249 sign/star/sub zones and preserves the existing five Reader-derived golden examples.
+- GoldenCheck.kt asserts that the engine constructs exactly 249 zones. No promise rule or event catalogue was altered. No build/compile was run; run host-check and compare the five sensitive-point vectors after pulling.
