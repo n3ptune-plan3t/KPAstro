@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "title": "Celebrity event development cases (non-marriage)",
+    "version": 1,
+    "purpose": "Exploratory retrospective code-path and event-month diagnostic across multiple event keys",
+    "role": "development-only; never treat as holdout",
+    "source_policy": "Manually selected public Astro-Databank entries. AA birth record rating. Event dates copied from the record; source URLs retained.",
+    "limitations": "Only two people; multiple events per person are correlated. Not representative and cannot establish predictive validity.",
+    "method": "Same frozen Moon-month candidate scoring as the marriage benchmark. No tuning or pass threshold."
+  },
+  "cases": [
+    {
+      "name": "Amy Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1949-11-23T00:45:00-08:00",
+      "latitude": 37.4419,
+      "longitude": -122.143,
+      "event_date": "1978-08-07",
+      "rule": "job",
+      "event": "New job: began national tour with Passion",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Amy",
+      "source_note": "Astro-Databank event entry; birth record in hand, Rodden AA."
+    },
+    {
+      "name": "Amy Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1949-11-23T00:45:00-08:00",
+      "latitude": 37.4419,
+      "longitude": -122.143,
+      "event_date": "1982-02-19",
+      "rule": "childbirth",
+      "event": "Birth of son Andrew",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Amy",
+      "source_note": "Astro-Databank event entry; birth record in hand, Rodden AA."
+    },
+    {
+      "name": "Amy Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1949-11-23T00:45:00-08:00",
+      "latitude": 37.4419,
+      "longitude": -122.143,
+      "event_date": "1984-03-12",
+      "rule": "property_purchase",
+      "event": "Purchase offer for house accepted",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Amy",
+      "source_note": "Astro-Databank event entry; birth record in hand, Rodden AA."
+    },
+    {
+      "name": "Amy Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1949-11-23T00:45:00-08:00",
+      "latitude": 37.4419,
+      "longitude": -122.143,
+      "event_date": "1987-04-02",
+      "rule": "divorce",
+      "event": "Final divorce decree from Marc Singer",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Amy",
+      "source_note": "Astro-Databank event entry; birth record in hand, Rodden AA. Final decree selected rather than initial filing."
+    },
+    {
+      "name": "Anne Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1930-05-30T15:40:00-08:00",
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "event_date": "1953-04-07",
+      "rule": "childbirth",
+      "event": "Birth of daughter Carla",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C%20Anne",
+      "source_note": "Astro-Databank event entry; quoted birth certificate, Rodden AA."
+    },
+    {
+      "name": "Anne Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1930-05-30T15:40:00-08:00",
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "event_date": "1977-11-21",
+      "rule": "second_marriage",
+      "event": "Marriage to George Rodden; biography reports earlier marriage and divorce in mid-1970s",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C%20Anne",
+      "source_note": "Astro-Databank event entry; quoted birth certificate, Rodden AA. Classified as second marriage based on biography."
+    }
+  ]
+}

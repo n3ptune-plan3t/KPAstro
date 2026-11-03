@@ -43,3 +43,13 @@ The benchmark uses one marriage per person. Historical local offsets are recorde
 6. Report hit rate together with candidate-month coverage/density, event-type breakdowns, sample size, birth-time source quality and uncertainty. Compare with a simple baseline. Do not describe retrospective performance as prospective predictive accuracy.
 
 This order follows standard evaluation practice: train/development and validation data can inform changes; the final test set must remain untouched. For time-dependent forecasting, preserve chronological boundaries and avoid information leakage.
+
+
+## Expanded development cases (not independent people)
+
+A second file, `celebrity-events.json`, exercises non-marriage event keys: job, property purchase, childbirth, divorce and second marriage. It currently uses dated public event records for Amy Rodden and Anne Rodden, both with AA birth-record ratings. Multiple events from the same person are correlated and must not be counted as independent chart samples. This is code-path coverage and exploratory diagnosis only; it is not a substitute for a larger, multi-person development cohort or the sealed holdout.
+
+Sources:
+- Amy Rodden: https://www.astro.com/astro-databank/Rodden%2C_Amy — birth record AA and dated work, property, childbirth and divorce entries.
+- Anne Rodden: https://www.astro.com/astro-databank/Rodden%2C%20Anne — quoted birth certificate AA and dated childbirth and second-marriage entries.
+- Rodden rating definitions: https://www.astro.com/astro-databank/Help%3ARR

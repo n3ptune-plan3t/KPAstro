@@ -30,7 +30,7 @@ fun runCelebrityBenchmark(path: String, rules: Map<String, Rule>) {
         val hit = eventMonth in months
         val density = months.size.toDouble() / horizon
         val nearest = months.minOfOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.MONTHS.between(it, eventMonth)) }
-        println("CELEBRITY " + c["name"] + " promise=" + result.promise.verdict +
+        println("EVENT " + c["name"] + " event=" + c["event"] + " rule=" + c["rule"] + " promise=" + result.promise.verdict +
             " eventMonth=" + eventMonth + " csl=" + result.promise.cuspSubLord + " support=" + result.promise.support + " denial=" + result.promise.denial + " hit=" + hit + " candidates=" + months.size + "/" + horizon +
             " density=" + "%.4f".format(density) + " nearestDelta=" + nearest)
         Triple(c["cohort"] as String, hit, density)
@@ -152,5 +152,6 @@ fun main(args: Array<String>) {
     ok(bestExact(event, scanStart) == upcoming, "bestExact prefers an upcoming window")
     ok(nextExact(event, scanStart) == upcoming, "nextExact chooses earliest upcoming window")
     if (args.size > 2) runCelebrityBenchmark(args[2], rules)
+    if (args.size > 3) runCelebrityBenchmark(args[3], rules)
     println("checks=$checks fails=$fails"); if (fails > 0) System.exit(1)
 }
