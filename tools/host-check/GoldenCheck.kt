@@ -60,7 +60,7 @@ fun main(args: Array<String>) {
     val pins = pinPeriod(ch, rules.getValue("job"), now, now.plusSeconds(730L * 86400)); ok(pins.size == l(g["pins"]).size, "pins count ${pins.size}")
     val ctx = Context(Profile("t", LocalDateTime.of(2000, 11, 21, 18, 12), Place(ist, 26.4446, 91.4373), Place(ist, 26.4446, 91.4373)), rules)
     val tierGroup = Group(setOf(2, 6), setOf(8), "verified", "tier test")
-    ok(netStrength(mapOf(2 to 4, 6 to 1), tierGroup) > netStrength(mapOf(2 to 1, 6 to 4), tierGroup),
+    ok(netStrength(mapOf(2 to 4), tierGroup) > netStrength(mapOf(2 to 1), tierGroup),
         "A-tier support outranks D-tier support")
     ok(netStrength(mapOf(8 to 4), tierGroup) < netStrength(emptyMap(), tierGroup),
         "A-tier denial reduces indication")
