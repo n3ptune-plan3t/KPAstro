@@ -41,14 +41,14 @@ fun LifeScreen(vm: KpViewModel, modifier: Modifier = Modifier) {
         item {
             Column(Modifier.statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Life outlook", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Promise = cusp sub-lord vs the event's house groups. Windows = dasha–bhukti pairs that support it, scanned from birth (${MONTH.format(sp.start.atZone(c.zone))}) to the end of the next mahadasha, ${sp.next} (${MONTH.format(sp.end.atZone(c.zone))}). Now running: ${sp.current}.",
+                Text("Promise = the event cusp's sub-lord against its house group. Periods = qualifying Dasa–Bhukti–Anthra combinations; transit candidates are refined to calendar months. Scanned from birth (${MONTH.format(sp.start.atZone(c.zone))}) to the end of the next mahadasha, ${sp.next} (${MONTH.format(sp.end.atZone(c.zone))}). Now running: ${sp.current}.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Top 3 time ranges", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("One best window per event, ranked by the A > B > C > D strength of the running lords (Reader 3 ~l.19169-19175); parent events must be promised and active.",
+                Text("Upcoming event windows", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Events are shown when the natal promise and a qualifying Dasa–Bhukti–Anthra period agree. Expand an event to inspect Moon month triggers and Sun/Jupiter/period-lord confirmations.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -95,7 +95,7 @@ private fun bestWindow(e: EventReport, ch: Chart): DashaWindow? {
 
 private fun rankedEvents(all: List<EventReport>, ch: Chart): List<EventReport> {
     fun eligible(e: EventReport) =
-        e.promise.verdict in setOf("strong", "promised") && e.windows.isNotEmpty() &&
+        e.promise.verdict in setOf("strong", "promised", "mixed") && e.windows.isNotEmpty() &&
             e.parents.all { it.promised } &&
             (e.rule.dependsOn.isEmpty() || e.windows.any { it.parentActive })
     return all.filter(::eligible).sortedWith(
@@ -107,6 +107,12 @@ private fun rankedEvents(all: List<EventReport>, ch: Chart): List<EventReport> {
 }
 
 private fun verdictColor(v: String) = when (v) { "strong", "promised" -> KpColors.Good; "mixed" -> KpColors.Gold; else -> KpColors.Bad }
+private fun verdictLabel(v: String) = when (v) {
+    "strong", "promised" -> "Supported"
+    "mixed" -> "Mixed"
+    "denied" -> "Not indicated"
+    else -> "Insufficient"
+}
 
 @Composable
 private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean, only: DashaWindow? = null, why: Boolean = false, onLoad: () -> Unit) {
@@ -119,7 +125,7 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(if (open) "▴" else "▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(8.dp))
-            Pill(e.promise.verdict, verdictColor(e.promise.verdict), filled = true)
+            Pill(verdictLabel(e.promise.verdict), verdictColor(e.promise.verdict), filled = true)
         }
         Text("Cusp ${e.rule.cusp} · sub-lord ${e.promise.cuspSubLord}" +
             if (e.rule.status != "verified") " · ${e.rule.status}" else "",
@@ -135,7 +141,7 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         if (e.windows.isEmpty()) {
-            Text(if (e.promise.verdict in listOf("strong", "promised")) "No matching dasha–bhukti window between birth and the end of the next mahadasha."
+            Text(if (e.promise.verdict in listOf("strong", "promised", "mixed")) "No qualifying Dasa–Bhukti–Anthra window in the scanned span."
                  else "Windows are only scanned when the promise is strong or promised.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -169,17 +175,16 @@ private fun EventCard(e: EventReport, zone: ZoneId, now: Instant, timing: EventT
     }
 }
 
-private fun zoneLabel(p: SensitivePoint) =
-    if (p.sign == "*") "star ${p.star} / sub ${p.sub}" else "sign ${p.sign} / star ${p.star} / sub ${p.sub}"
+private fun zoneLabel(p: SensitivePoint) = "sign ${p.sign} / star ${p.star} / sub ${p.sub}"
 
 @Composable
 private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean) {
     Text("Month-level transit timing", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    Text("A month is listed only when a qualifying Dasa–Bhukti–Anthra is active and the Sun or one of its period lords crosses the corresponding KP sign/star/sub zone. This is a month-level astrological window, not a guarantee that an event will occur.",
+    Text("A month is listed when the Moon crosses the sensitive sign/star/sub zone during a qualifying Dasa–Bhukti–Anthra. Sun, Jupiter and running period lords are shown only when they also cross that same zone in that month. These are astrological indications, not guarantees.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when {
-        e.promise.verdict !in listOf("strong", "promised") ->
-            Text("Exact timing needs a promised event; this one is ${e.promise.verdict}.",
+        e.promise.verdict !in listOf("strong", "promised", "mixed") ->
+            Text("Month timing is not calculated because the natal indication is ${verdictLabel(e.promise.verdict).lowercase()}.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         timing == null && busy ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -191,7 +196,7 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
         timing == null ->
             Text("Computing the exact times…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         timing.monthly.isEmpty() ->
-            Text("No qualifying month-level transit was found inside the scanned Dasa–Bhukti–Anthra periods.",
+            Text("No qualifying Moon crossing was found inside the scanned Dasa–Bhukti–Anthra periods.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> {
             timing.monthly.take(24).forEach { candidate ->
@@ -199,13 +204,14 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 Text("Dasa–Bhukti–Anthra: " + candidate.chains.joinToString(" / ") { it.joinToString("–") },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Transit triggers: " + candidate.triggers.map { it.body }.distinct().joinToString(", ") +
-                    " · " + candidate.triggers.size + " crossing(s)",
+                Text("Moon: ${candidate.moonCrossings.size} · Sun: ${candidate.sunConfirmations.size} · Jupiter: ${candidate.jupiterConfirmations.size} · DBA lords: ${candidate.periodLordConfirmations.size}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Sensitive zone: " + candidate.moonCrossings.map { zoneLabel(it.point) }.distinct().joinToString(" / "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (timing.monthly.size > 24) Text("+${timing.monthly.size - 24} additional candidate months",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text("Source: KP Reader 5, OCR lines 9900–10070 (249 sign/star/sub zones and running three-lord period); Reader 3, OCR lines 22850–22950 (worked example selecting the Anthra, Shookshma and transit month/date).",
+            Text("Sources: Reader 5 ~l.9900–10070 (249 sensitive sign/star/sub zones); KP Astrology tutorial, Chapter 2, Timing Events (DBA, Sun and Moon transit timing); Astro Chart, Timing of the Events, 29 Apr 2026 (Jupiter/Sun/Moon and DBA-lord transit method).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

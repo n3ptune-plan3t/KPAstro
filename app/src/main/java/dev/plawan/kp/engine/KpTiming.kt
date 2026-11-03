@@ -6,13 +6,10 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-// Exact event timing (Reader 5 ~l.9970-10040, ~l.11170-11180; Reader 3 ~l.19160-19175).
-// When a promised Dasa-Bhukti-Antara (A-B-C) runs, the sensitive points are the rows of
-// the 249-sub table whose sign/star/sub lords are exactly that group (Reader 5
-// ~l.9970-10040). A transit of the luminaries, the period lords or the Lagna over one
-// of those points gives the date, hour and minute. Rahu/Ketu can be star or sub lords in
-// the table (but never sign lords). The two-level fallback pins only "star of one" +
-// "sub of the other" (Reader 5 ~l.2626).
+// Month-level KP timing. A qualifying Dasa-Bhukti-Anthara defines the active period.
+// Moon crossings of its sensitive sign/star/sub zones nominate calendar months;
+// Sun, Jupiter and the running period lords are retained as separate corroboration.
+// Transit is never used without the natal promise and active period.
 
 data class SensitivePoint(val sign: String, val star: String, val sub: String)
 
@@ -25,7 +22,10 @@ data class ExactWindow(
 data class MonthCandidate(
     val month: YearMonth,
     val chains: List<List<String>>,
-    val triggers: List<ExactWindow>,
+    val moonCrossings: List<ExactWindow>,
+    val sunConfirmations: List<ExactWindow>,
+    val jupiterConfirmations: List<ExactWindow>,
+    val periodLordConfirmations: List<ExactWindow>,
 )
 
 data class EventTiming(
@@ -44,12 +44,9 @@ data class ExactCfg(
 
 val EXACT_CFG = ExactCfg()
 
-// On-device preset for the UI: the narrowest 249-row zone is the Sun sub (~40', Reader 5 table),
-// which the Moon crosses in ~75 min, so a 45-min step cannot skip a zone and still resolves the
-// book's "hour" precision (~l.11170-11180). EXACT_CFG stays as the reference default (parity with
-// tools/reference/kp_timing.py DEFAULT_CFG); no edge here is an analytic crossing either way.
-// Depth 3 periods are pratyantardasha (1-3 months), so 60 of them stay a second-scale sweep.
-val UI_EXACT_CFG = ExactCfg(moonStepMin = 15, sunStepMin = 240, fastStepMin = 120, slowStepMin = 360, maxPeriods = 60, maxHits = 600)
+// Month-resolution scan settings. Boundary times are refined by bisection;
+// these are transit windows, not claims of exact event times.
+val UI_EXACT_CFG = ExactCfg(moonStepMin = 15, sunStepMin = 240, fastStepMin = 120, slowStepMin = 360, maxPeriods = 600, maxHits = 6000)
 
 private val SLOW_LORDS = setOf("Jupiter", "Saturn", "Rahu", "Ketu")
 private val NODE_BODY = if (RAHU_MEAN) Swe.MEAN_NODE else 11
@@ -59,13 +56,15 @@ private const val THREE_LEVEL_SOURCE =
 private const val TWO_LEVEL_SOURCE =
     "Reader 5 ~l.2626: the result is felt when one luminary transits the star of one lord and the sub of the other."
 private const val MOON_SOURCE =
-    "Reader 5 ~l.11170-11180 / ~l.2626: the Moon gives the hour; it crosses a sensitive point once in about 27 days."
+    "KP Astrology tutorial, Chapter 2, Timing Events: Moon transit through significators narrows an event to a month; Reader 5 ~l.9970-10070 gives sensitive zones."
 private const val SUN_SOURCE =
-    "Reader 5 ~l.2535-2538: the Sun transits the zone on the day, fixing the date."
+    "KP Astrology tutorial, Chapter 2, Timing Events: Sun transit is used for the likely year/month window; Astro Chart, Timing of the Events, 29 Apr 2026."
 private const val ASC_SOURCE =
     "Reader 5 ~l.11170-11180: within the Moon hour the Lagna gives the exact minute."
+private const val JUPITER_SOURCE =
+    "Astro Chart, Timing of the Events, 29 Apr 2026, method 6: Jupiter transit through DBA-lord stars/subs is used for events expected beyond a year. Broad corroboration only."
 private const val LORD_SOURCE =
-    "Engine convention (not a Reader rule): period-lord windows are sampled coarsely at 6-hour (fast) or 12-hour (slow) intervals. Reader 5 ~l.10026-10038 supports period-lord transits, but does not establish a universal slow-planet=month timing rule."
+    "Reader 5 ~l.9970-10070: transits of the running Dasa-Bhukti-Anthra lords through their joint sensitive zones are relevant; scan interval is an implementation setting."
 
 /**
  * Reader 5's 249 sensitive divisions. The Vimshottari star/sub table has 243 intervals;
@@ -241,9 +240,11 @@ fun exactTimes(
         val targets = sensitivePoints(chain, useDepth)
         if (targets.isEmpty()) continue
         val strength = chain.sumOf { significatorRank(ch, it, rule.primary) }
-        val s = maxOf(p.start, from)
-        val e = minOf(p.end, to)
-        val bodies = (chain + "Sun").distinct()
+        val s0 = maxOf(p.start, from)
+        val e0 = minOf(p.end, to)
+        // Jupiter = broad context; Sun = intermediate; Moon = month trigger.
+        // Period lords independently confirm the active DBA's sensitive zone.
+        val bodies = (listOf("Jupiter", "Sun", "Moon") + chain).distinct()
         for (body in bodies) {
             val step = when {
                 body == "Moon" -> cfg.moonStepMin
@@ -251,28 +252,38 @@ fun exactTimes(
                 body in SLOW_LORDS -> cfg.slowStepMin
                 else -> cfg.fastStepMin
             }
-            val src = if (body == "Sun") SUN_SOURCE else LORD_SOURCE
+            val source = when (body) {
+                "Moon" -> MOON_SOURCE
+                "Sun" -> SUN_SOURCE
+                "Jupiter" -> JUPITER_SOURCE
+                else -> LORD_SOURCE
+            }
             raw += scanLords(
-                body, targets, s, e, step, "month", if (body == "Sun") 2 else 1,
-                chain, strength, rule.key, THREE_LEVEL_SOURCE + " " + src,
-            ) { t -> bodyLords(body, Swe.jd(t)) }
+                body, targets, s0, e0, step, "month",
+                if (body == "Moon") 3 else if (body == "Sun") 2 else 1,
+                chain, strength, rule.key, THREE_LEVEL_SOURCE + " " + source,
+            ) { instant -> bodyLords(body, Swe.jd(instant)) }
         }
     }
 
-    val byMonth = LinkedHashMap<YearMonth, MutableList<ExactWindow>>()
-    for (hit in raw) {
-        var month = YearMonth.from(hit.start.atZone(zone))
-        val last = YearMonth.from(hit.end.minusNanos(1).atZone(zone))
-        while (!month.isAfter(last)) {
-            byMonth.getOrPut(month) { ArrayList() }.add(hit)
-            month = month.plusMonths(1)
-        }
-    }
-    val monthly = byMonth.entries
+    fun monthOf(w: ExactWindow) = YearMonth.from(w.start.atZone(zone))
+    fun sameMonthAndPoint(a: ExactWindow, b: ExactWindow) =
+        monthOf(a) == monthOf(b) && a.point == b.point
+
+    val moonHits = raw.filter { it.body == "Moon" }
+    val monthly = moonHits.groupBy(::monthOf).entries
         .sortedBy { it.key }
         .take(cfg.maxHits)
-        .map { (month, triggers) ->
-            MonthCandidate(month, triggers.map { it.chain }.distinct(), triggers.distinct())
+        .map { (month, moons) ->
+            val inMonth = raw.filter { monthOf(it) == month }
+            val sun = inMonth.filter { it.body == "Sun" && moons.any { m -> sameMonthAndPoint(m, it) } }
+            val jupiter = inMonth.filter { it.body == "Jupiter" && moons.any { m -> sameMonthAndPoint(m, it) } }
+            val period = inMonth.filter {
+                it.body !in setOf("Moon", "Sun", "Jupiter") &&
+                    moons.any { m -> sameMonthAndPoint(m, it) }
+            }
+            MonthCandidate(month, moons.map { it.chain }.distinct(), moons.distinct(),
+                sun.distinct(), jupiter.distinct(), period.distinct())
         }
     return EventTiming(rule, pr, broad, emptyList(), monthly)
 }

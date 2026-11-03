@@ -156,7 +156,7 @@ fun lifeReport(ch: Chart, rules: Map<String, Rule>, years: Int = 20, now: Instan
     val end = range?.end ?: now.plusDays(365.25 * years)
     val base = rules.values.associate { r ->
         val pr = promise(ch, r)
-        val wins = if (pr.verdict == "strong" || pr.verdict == "promised") scan(ch, r, from, end, depth) else emptyList()
+        val wins = if (pr.verdict in setOf("strong", "promised", "mixed")) scan(ch, r, from, end, depth) else emptyList()
         r.key to Pair(pr, wins)
     }
     return rules.values.map { r ->
