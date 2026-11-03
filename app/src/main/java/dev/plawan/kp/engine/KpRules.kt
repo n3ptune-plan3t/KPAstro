@@ -4,8 +4,8 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.math.min
 
-// Port of kp_rules.py: promise (cusp sub-lord), dasha-window scan, Reader-5 transit pinning, lucky-time diary,
-// birth-time sensitivity. Event rules come from rules.json (never hard-coded).
+// Event promise evaluation, Dasa–Bhukti–Anthra eligibility, daily Moon windows and birth-time sensitivity.
+// Event rules come from rules.json (never hard-coded).
 
 data class Rule(
     val key: String, val cusp: Int, val primary: Int, val support: List<Int>, val denial: List<Int>,
@@ -188,63 +188,6 @@ fun moonWindows(dayStart: Instant, stepMin: Int = 5): List<MoonWindow> {
         t = t.plusSeconds(step)
     }
     return out
-}
-
-// ------------------------------------------------------------------ 4. transit pinning (Reader 5 ~l.2626)
-data class PinWindow(val start: Instant, var end: Instant, val star: String, val sub: String, val chain: List<String> = emptyList(), val body: String = "")
-
-fun transitPin(body: Int, a: String, b: String, start: Instant, end: Instant, stepMin: Int = 60, ketu: Boolean = false): List<PinWindow> {
-    val out = ArrayList<PinWindow>(); var t = start; val step = stepMin * 60L
-    while (t.isBefore(end)) {
-        val l = lordsAt(if (ketu) ((Swe.lon(Swe.jd(t), body) + 180.0) % 360.0 + 360.0) % 360.0 else Swe.lon(Swe.jd(t), body))
-        if ((l.star == a && l.sub == b) || (l.star == b && l.sub == a)) {
-            val last = out.lastOrNull()
-            if (last != null && last.end == t && last.star == l.star && last.sub == l.sub) last.end = t.plusSeconds(step)
-            else out.add(PinWindow(t, t.plusSeconds(step), l.star, l.sub))
-        }
-        t = t.plusSeconds(step)
-    }
-    return out
-}
-
-fun pinPeriod(ch: Chart, rule: Rule, start: Instant, end: Instant, body: Int = Swe.SUN): List<PinWindow> {
-    val res = ArrayList<PinWindow>()
-    for (w in scan(ch, rule, start, end, 2)) for (lords in w.lords) {
-        val (md, ad) = lords[0] to lords[1]
-        val parent = mahadashas(ch).first { it.lords == listOf(md) }
-        for (p in subPeriods(parent)) if (p.lords == listOf(md, ad) && p.end.isAfter(start) && p.start.isBefore(end)) {
-            val s = if (p.start.isAfter(start)) p.start else start; val e = if (p.end.isBefore(end)) p.end else end
-            transitPin(body, md, ad, s, e).forEach { res.add(it.copy(chain = listOf(md, ad))) }
-        }
-    }
-    return res
-}
-
-// Reader 5 ~l.2535-2537 and ~l.2580-2583: with dasa lord X and bhukti lord Y the matters of both materialise 'when either of
-// them or either of the luminaries transit in the zone' (star X sub Y or star Y sub X). So the pinning bodies are the two
-// period lords themselves plus the Sun (pins days) and the Moon (pins hours, ~l.11165-11175). Rahu/Ketu are the mean node and +180.
-// Sampling: Moon 5 min (its shortest sub is ~70 min), every other body 60 min. Opt-in: this scans many samples, so call it for
-// a bounded window rather than for a whole life.
-data class PinBody(val name: String, val id: Int, val stepMin: Int, val ketu: Boolean = false)
-
-private val PIN_IDS = mapOf("Sun" to Swe.SUN, "Moon" to Swe.MOON, "Mars" to Swe.MARS, "Mercury" to Swe.MERCURY, "Jupiter" to Swe.JUPITER,
-    "Venus" to Swe.VENUS, "Saturn" to Swe.SATURN, "Rahu" to Swe.MEAN_NODE, "Ketu" to Swe.MEAN_NODE)
-
-fun pinBodiesFor(md: String, ad: String): List<PinBody> =
-    (listOf(md, ad, "Sun", "Moon")).distinct().map { PinBody(it, PIN_IDS.getValue(it), if (it == "Moon") 5 else 60, it == "Ketu") }
-
-fun pinPeriodAll(ch: Chart, rule: Rule, start: Instant, end: Instant): List<PinWindow> {
-    val res = ArrayList<PinWindow>()
-    for (w in scan(ch, rule, start, end, 2)) for (lords in w.lords) {
-        val (md, ad) = lords[0] to lords[1]
-        val parent = mahadashas(ch).first { it.lords == listOf(md) }
-        for (p in subPeriods(parent)) if (p.lords == listOf(md, ad) && p.end.isAfter(start) && p.start.isBefore(end)) {
-            val s = if (p.start.isAfter(start)) p.start else start; val e = if (p.end.isBefore(end)) p.end else end
-            for (pb in pinBodiesFor(md, ad))
-                transitPin(pb.id, md, ad, s, e, pb.stepMin, pb.ketu).forEach { res.add(it.copy(chain = listOf(md, ad), body = pb.name)) }
-        }
-    }
-    return res.sortedBy { it.start }
 }
 
 // ------------------------------------------------------------------ 5. personal lucky-time diary (Reader 5 ~l.11770-11850)
