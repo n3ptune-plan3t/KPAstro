@@ -33,13 +33,22 @@ fun runCelebrityBenchmark(path: String, rules: Map<String, Rule>) {
         println("EVENT " + c["name"] + " event=" + c["event"] + " rule=" + c["rule"] + " promise=" + result.promise.verdict +
             " eventMonth=" + eventMonth + " csl=" + result.promise.cuspSubLord + " support=" + result.promise.support + " denial=" + result.promise.denial + " hit=" + hit + " candidates=" + months.size + "/" + horizon +
             " density=" + "%.4f".format(density) + " nearestDelta=" + nearest)
-        Triple(c["cohort"] as String, hit, density)
+        Triple(Pair(c["cohort"] as String, c["rule"] as String), hit, density)
     }
-    for (cohort in listOf("primary", "secondary")) {
-        val group = results.filter { it.first == cohort }
+    for (cohort in listOf("primary", "secondary", "development")) {
+        val group = results.filter { it.first.first == cohort }
         if (group.isNotEmpty()) {
             val hits = group.count { it.second }
             println("CELEBRITY_SUMMARY cohort=" + cohort + " n=" + group.size + " hits=" + hits +
+                " hitRate=" + "%.3f".format(hits.toDouble() / group.size) +
+                " meanCandidateDensity=" + "%.4f".format(group.map { it.third }.average()))
+        }
+    }
+    for (rule in results.map { it.first.second }.distinct().sorted()) {
+        val group = results.filter { it.first.second == rule }
+        if (group.isNotEmpty()) {
+            val hits = group.count { it.second }
+            println("EVENT_RULE_SUMMARY rule=" + rule + " n=" + group.size + " hits=" + hits +
                 " hitRate=" + "%.3f".format(hits.toDouble() / group.size) +
                 " meanCandidateDensity=" + "%.4f".format(group.map { it.third }.average()))
         }
