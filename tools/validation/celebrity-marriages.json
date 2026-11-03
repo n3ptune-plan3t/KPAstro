@@ -1,0 +1,118 @@
+{
+  "_meta": {
+    "title": "Celebrity marriage month benchmark",
+    "version": 1,
+    "purpose": "Exploratory retrospective test of KP marriage month timing",
+    "primary_cohort": "Rodden AA birth-record cases only",
+    "source_policy": "Each record was individually inspected; no scraping or bulk harvesting.",
+    "limitations": "Small convenience sample, one event class. Cannot prove scientific validity. Do not tune the model on these same cases.",
+    "method": "Hit if the actual marriage month is in Moon-triggered candidates during a qualifying Dasa-Bhukti-Anthara. Sun, Jupiter and DBA-lord transits through the same zone/month are recorded as corroboration, not required gates.",
+    "rule": "marriage"
+  },
+  "cases": [
+    {
+      "name": "Elizabeth II",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1926-04-21T02:40:00+01:00",
+      "latitude": 51.5,
+      "longitude": -0.15,
+      "event_date": "1947-11-20",
+      "rule": "marriage",
+      "event": "Marriage to Prince Philip",
+      "source_url": "https://www.astro.com/adbvip/adbvip_04_21.htm",
+      "source_note": "Astro-Databank: quoted birth certificate/birth record, Rodden AA; marriage date 20 Nov 1947 also confirmed by the Royal Family."
+    },
+    {
+      "name": "Drew Barrymore",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1975-02-22T11:51:00-08:00",
+      "latitude": 34.0167,
+      "longitude": -118.4,
+      "event_date": "1994-03-20",
+      "rule": "marriage",
+      "event": "Marriage to Jeremy Thomas",
+      "source_url": "https://www.astro.com/adbvip/adbvip_02_22.htm",
+      "source_note": "Astro-Databank: birth certificate/birth record in hand, Rodden AA; event date listed on the same record."
+    },
+    {
+      "name": "George Clooney",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1961-05-06T02:58:00-05:00",
+      "latitude": 38.05,
+      "longitude": -84.5,
+      "event_date": "2014-09-27",
+      "rule": "marriage",
+      "event": "Civil marriage to Amal Clooney",
+      "source_url": "https://www.astro.com/adbvip/adbvip_05_06.htm",
+      "source_note": "Astro-Databank: birth certificate/birth record in hand, Rodden AA; civil marriage date listed on the same record."
+    },
+    {
+      "name": "Sean Penn",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1960-08-17T15:17:00-07:00",
+      "latitude": 34.1833,
+      "longitude": -118.3,
+      "event_date": "1985-08-16",
+      "rule": "marriage",
+      "event": "Marriage to Madonna",
+      "source_url": "https://www.astro.com/adbvip/adbvip_08_17.htm",
+      "source_note": "Astro-Databank: birth certificate in hand, Rodden AA; marriage date listed on the same record."
+    },
+    {
+      "name": "Robert Redford",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1936-08-18T20:02:00-08:00",
+      "latitude": 34.0167,
+      "longitude": -118.4833,
+      "event_date": "1958-09-12",
+      "rule": "marriage",
+      "event": "Marriage to Lola Van Wagenen",
+      "source_url": "https://www.astro.com/adbvip/adbvip_08_18.htm",
+      "source_note": "Astro-Databank: birth certificate/birth record in hand, Rodden AA; marriage date listed on the same record."
+    },
+    {
+      "name": "Adam Levine",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1979-03-18T15:24:00-08:00",
+      "latitude": 34.0753,
+      "longitude": -118.3808,
+      "event_date": "2014-07-19",
+      "rule": "marriage",
+      "event": "Marriage to Behati Prinsloo",
+      "source_url": "https://www.astro.com/astro-databank/Levine%2C_Adam",
+      "source_note": "Astro-Databank: birth certificate in hand, Rodden AA; marriage date listed on the same record."
+    },
+    {
+      "name": "Barbra Streisand",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1942-04-24T05:08:00-04:00",
+      "latitude": 40.6333,
+      "longitude": -73.9333,
+      "event_date": "1998-07-01",
+      "rule": "marriage",
+      "event": "Marriage to James Brolin",
+      "source_url": "https://www.astro.com/adbvip/adbvip_04_24.htm",
+      "source_note": "Astro-Databank: quoted birth certificate/birth record, Rodden AA; marriage date listed on the same record."
+    },
+    {
+      "name": "Nicolas Cage",
+      "cohort": "primary",
+      "rating": "AA",
+      "birth_datetime": "1964-01-07T05:30:00-08:00",
+      "latitude": 33.7833,
+      "longitude": -118.3,
+      "event_date": "1995-04-27",
+      "rule": "marriage",
+      "event": "Marriage to Patricia Arquette",
+      "source_url": "https://www.astro.com/adbvip/adbvip_01_07.htm",
+      "source_note": "Astro-Databank: birth certificate/birth record in hand, Rodden AA; marriage date listed on the same record."
+    }
+  ]
+}
