@@ -14,6 +14,17 @@ fun wins(o: Any?) = l(o).map { l(it) }
 fun main(args: Array<String>) {
     val g = m(MiniJson.parse(java.io.File(args[0]).readText()))
     val rules = parseRules(java.io.File(args[1]).readText())
+    ok(rules.getValue("first_job").cusp == 6 && rules.getValue("first_job").promiseMode == "star_all",
+        "first_job uses the Reader 6 6th-cusp star condition")
+    ok(rules.getValue("first_private_job").promiseMode == "star_sub_all",
+        "private job checks star and sub channels separately")
+    ok(rules.getValue("love_affair").promiseMode == "star_all" &&
+        rules.getValue("recovery_from_illness").promiseMode == "star_all",
+        "love affair and recovery use their Reader-specified star channel")
+    ok(rules.getValue("marriage").subDenialOwners == listOf(1, 6, 10) &&
+        rules.getValue("marriage").subDenialSignifies == listOf(12),
+        "marriage veto uses the Reader 4 owner-plus-signification condition")
+
     ok(sensitiveZoneTable().size == 249, "Reader 5 has 249 sign/star/sub zones")
     for ((k, v) in m(g["sensitive"] ?: emptyMap<String, Any?>())) {
         val got = sensitivePoints(k.split("-")).map { listOf(it.sign, it.star, it.sub).joinToString("/") }

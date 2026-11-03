@@ -347,3 +347,13 @@ No build and no install were run. Work is on the `deepseek` branch.
 - A=4, B=3, C=2, D=1 is an order-preserving encoding for the comparative presentation index; the Reader defines the order, not these cardinal weights. The index is not a probability.
 - Event promise and period eligibility thresholds remain unchanged because they require a separate event-by-event source audit.
 - Source: kp-readers/J_KP reader_3_Predictive Stellar Astrology_djvu.txt ~l.19169-19190. Daily golden values will change; regenerate tools/reference/golden.json and run tools/host-check/run.sh. No build/compile run here.
+
+
+### Session 14 (2026-11-03): source-level promise and period gates
+
+- Audited promise/period logic against Reader 4 ~l.7160-7168, Reader 6 ~l.18260-18262, KP-E-Zine ~l.68428-68431, ~l.699160 and ~l.752258.
+- Corrected layer-specific promise conditions: first_job judges the 6th cusp and requires its sub-lord's star-lord to signify both 10 and 11; first_private_job requires the 10th cusp sub-lord's star-lord to signify 6 and its sub-lord to signify 7; love_affair requires the 5th cusp sub-lord's star-lord to signify 7 and 11; recovery_from_illness requires the 1st cusp sub-lord's star-lord to signify 1,5,11, with 6/12 as a star-level denial.
+- Implemented Reader 4's specific marriage period veto: a dasha significator's sub-lord blocks marriage only when it owns 1/6/10 and signifies 12. Removed the unsourced generic support-vs-denial house-count permission test from unrelated event types.
+- Marked first_government_job partial because its cited E-Zine condition also mentions a Sun/Moon connection not yet separately modelled.
+- Dasha-chain eligibility remains an explicitly documented engine heuristic: each period lord must signify at least one event-support house, and the chain union must cover the primary house and at least two distinct support houses (or one for any_support rules). These thresholds are not claimed as universal KP doctrine.
+- Regenerate golden.json and run host-check; no build or compile was run here.

@@ -16,7 +16,15 @@
     ],
     "status": "verified",
     "source": "Reader 4 ~l.7128-7139 (order of judging: 2,7,11) and l.7160-7168: sub-lord of a significator connected with 2,7,11 is useful; if the sub is lord of 1,6,10 and significator of 12, marriage cannot take place; ruling planets at the moment of judgement must agree.",
-    "plain": "Marriage is judged from the 7th house. Houses 2 (family), 7 (partner) and 11 (wish fulfilled) say 'yes'. Houses 1, 6, 10 and 12 say 'no' or 'trouble'. It happens in a period whose planets link to 2, 7 and 11."
+    "plain": "Marriage is judged from the 7th house. Houses 2 (family), 7 (partner) and 11 (wish fulfilled) say 'yes'. Houses 1, 6, 10 and 12 say 'no' or 'trouble'. It happens in a period whose planets link to 2, 7 and 11.",
+    "sub_denial_owners": [
+      1,
+      6,
+      10
+    ],
+    "sub_denial_signifies": [
+      12
+    ]
   },
   "childbirth": {
     "cusp": 5,
@@ -58,22 +66,21 @@
     "plain": "A job is judged from the 10th house. Houses 2 (income), 6 (service), 10 (profession) and 11 (gain) support it. Houses 1, 5 and 9 point towards leaving or ending a job."
   },
   "first_job": {
-    "cusp": 10,
+    "cusp": 6,
     "primary": 10,
     "support": [
-      2,
-      6,
       10,
       11
     ],
-    "denial": [
-      1,
-      5,
-      9
-    ],
+    "denial": [],
     "status": "verified",
-    "source": "Reader 3 ~l.11964-11965: houses 2,6,10 indicate service; the 12th from these (1,5,9) show end of service. Reader 6 ~l.18260-18262: 'To enter into service: the sub-lord of the sixth is to be deposited in the constellation of the planet signifying houses 10 and 11.' Reader 3 ~l.22345-22352: 2 receipt of money, 6 dues from service, 10 profession, 11 gain. The first job uses the same service promise (10th CSL) as job; its earliest matching dasha window is the first job.",
-    "plain": "The first job is judged like service: the 10th cusp sub-lord must link to 2 (income), 6 (service), 10 (profession) or 11 (gain), and not to 1, 5 or 9 (ending). The first matching period is the first job and the start of regular income."
+    "source": "Reader 6 ~l.18260-18262: to enter into service, the 6th cusp sub-lord is to be deposited in the constellation of a planet signifying houses 10 and 11. The 10/11 group is also the dasha timing group.",
+    "plain": "Entry into service is judged from the 6th cusp. Its sub-lord's star-lord must signify both 10 (profession) and 11 (success). The first qualifying period is the first job.",
+    "promise_mode": "star_all",
+    "star_support": [
+      10,
+      11
+    ]
   },
   "first_government_job": {
     "cusp": 10,
@@ -87,8 +94,8 @@
     "denial": [
       8
     ],
-    "status": "verified",
-    "source": "KP-E-Zine (Jan2015-Oct2020) 'Getting a government job through SSC CGL 2018 exam quota?' ~l.727284-727310: if the 10th CSL signifies 2, 6, 10 or 11 and/or is connected with the Sun or Moon, without the 8th, a government job is promised; time it by the joint period of the significators of 2, 6, 10 or 11. KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95631-95695: 11th/6th/10th CSL as significator of 2/6/10/11; 5 or 9 makes a job temporary. The engine checks the house group; the Sun/Moon condition is stated in the plain rule but not separately gated.",
+    "status": "partial",
+    "source": "KP-E-Zine (Jan2015-Oct2020) 'Getting a government job through SSC CGL 2018 exam quota?' ~l.727284-727310: if the 10th CSL signifies 2, 6, 10 or 11 and/or is connected with the Sun or Moon, without the 8th, a government job is promised; time it by the joint period of the significators of 2, 6, 10 or 11. KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95631-95695: 11th/6th/10th CSL as significator of 2/6/10/11; 5 or 9 makes a job temporary. The engine checks the house group; the Sun/Moon condition is stated in the plain rule but not separately gated. The additional Sun/Moon connection is not separately gated by this engine, so this rule is partial rather than fully verified.",
     "plain": "A government job is judged from the 10th house. Its sub-lord must link to 2 (money), 6 (service), 10 (profession) or 11 (success), with no link to 8 (obstacles); the Sun or Moon as royal planets strengthens it. The joint period of those significators gives the job."
   },
   "banking_job": {
@@ -125,12 +132,19 @@
     ],
     "denial": [],
     "status": "verified",
-    "source": "KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95679-95681: 'If the 10th Sublord is significator of 6 house through Starlord and 7th house through Sublord it indicates private job. Venus is planet for private job as well as for business.'",
+    "source": "KP-E-Zine (Nov2020-Dec2021) 'Government Job Part 1' ~l.95679-95681: the 10th cusp sub-lord signifies 6 through its star-lord and 7 through its sub-lord; this is the specific private-job condition.",
     "plain": "A private job is shown when the 10th cusp sub-lord links 6 (service) and 7 (private employment/others); Venus strengthens it. The first matching period is the first private job.",
     "depends_on": [
       "job"
     ],
-    "depends_on_source": "A private job is a job: Reader 3 ~l.11964-11965 (2, 6, 10 = service)."
+    "depends_on_source": "A private job is a job: Reader 3 ~l.11964-11965 (2, 6, 10 = service).",
+    "promise_mode": "star_sub_all",
+    "star_support": [
+      6
+    ],
+    "sub_support": [
+      7
+    ]
   },
   "retirement": {
     "cusp": 9,
@@ -699,12 +713,22 @@
       12
     ],
     "status": "verified",
-    "source": "KP-E-Zine (Jan2015-Oct2020) ~l.699160: if the 1st cusp sub-lord through its star lord signifies 1,5,11, cure from the disease; ~l.752258: 1,5,11 cure diseases/recovery, 'if connected with 6, 12 no cure'; ~l.154147: ascendant CSL links with 1,5,11 = cure and release from hospital. KP-E-Zine (Feb2007-Dec2010) ~l.61178 same table. Reader 3 ~l.8715-8719: sub-lord of the ascendant signifying 1 and 11 promises cure and speedy recovery.",
+    "source": "KP-E-Zine (Jan2015-Oct2020) ~l.699160: if the 1st cusp sub-lord through its star-lord signifies 1,5,11, cure is indicated. ~l.752258: 1,5,11 cure; connection with 6,12 means no cure. Reader 3 ~l.8715-8719 corroborates ascendant CSL signifying 1 and 11.",
     "plain": "Recovery is shown when the 1st house link goes through 1, 5 and 11. If it is mixed with 6 and 12, there is no cure yet.",
     "depends_on": [
       "illness"
     ],
-    "depends_on_source": "Reader 3 ~l.10818-10822: planets connected with the 11th house cure the disease 'as the eleventh house is the 6th to the 6th'; recovery presupposes the disease indicated by 6,8,12 (Reader 3 ~l.17665)."
+    "depends_on_source": "Reader 3 ~l.10818-10822: planets connected with the 11th house cure the disease 'as the eleventh house is the 6th to the 6th'; recovery presupposes the disease indicated by 6,8,12 (Reader 3 ~l.17665).",
+    "promise_mode": "star_all",
+    "star_support": [
+      1,
+      5,
+      11
+    ],
+    "star_denial": [
+      6,
+      12
+    ]
   },
   "promotion": {
     "cusp": 10,
@@ -797,7 +821,6 @@
     "cusp": 5,
     "primary": 5,
     "support": [
-      5,
       7,
       11
     ],
@@ -805,8 +828,13 @@
       4
     ],
     "status": "verified",
-    "source": "KP-E-Zine (Jan 2015-Oct 2020) ~l.68428-68431: 'If the 5 cusp sub lord is in the constellation of a planet who is the significator of the houses 7 and 11, then the materialization of love affair is promised.' Reader 4 ~l.6404-6405: the 5th shows love affair or children, the 4th failure in love affairs.",
-    "plain": "A love affair is judged from the 5th house. When its sub-lord is tied to 7 (the partner) and 11 (fulfilment), the affair materialises; the 4th house shows failure in love."
+    "source": "KP-E-Zine (Jan2015-Oct2020) ~l.68428-68431: the 5th cusp sub-lord must be in the constellation of a planet that signifies both 7 and 11. Reader 4 ~l.6404-6405: the 4th house indicates failure in love affairs.",
+    "plain": "A love affair is judged from the 5th house. When its sub-lord is tied to 7 (the partner) and 11 (fulfilment), the affair materialises; the 4th house shows failure in love.",
+    "promise_mode": "star_all",
+    "star_support": [
+      7,
+      11
+    ]
   },
   "college_admission": {
     "cusp": 4,

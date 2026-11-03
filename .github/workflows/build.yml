@@ -1,4 +1,4 @@
-name: Build Android APK
+name: KP Astro CI
 
 on:
   push:
@@ -8,74 +8,152 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: kp-astro-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  changed-files:
+    runs-on: ubuntu-latest
+    outputs:
+      engine: ${{ steps.filter.outputs.engine }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "push" ] || [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "engine=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" | grep -Eq '^(tools/reference/(kp_core|kp_rules|kp_daily|kp_timing|gen_golden)\.py|tools/reference/(rules|profile)\.json|app/src/main/assets/rules\.json|app/src/main/java/dev/plawan/kp/engine/|tools/host-check/|\.github/workflows/)'; then
+            echo "engine=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "engine=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.0.12077973 cmake;3.22.1"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.14.4"
-
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
-
       - uses: actions/upload-artifact@v7
         with:
           name: kp-astro-apk-${{ github.ref_name }}
           path: app/build/outputs/apk/debug/*.apk
-
       - name: Calculate next tag and create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           git fetch --tags --force
-
-          # Stable namespace: X.Y.Z (tolerate an optional leading v on legacy tags).
           LATEST_STABLE=$(git tag -l --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
           BASE="${LATEST_STABLE#v}"
           [ -z "$BASE" ] && BASE="0.0.0"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
           NEXT_STABLE="${MAJOR}.${MINOR}.$((PATCH + 1))"
-
           BRANCH="$GITHUB_REF_NAME"
           APK_PATH=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
-
           if [ "$BRANCH" = "main" ]; then
             TAG="$NEXT_STABLE"
             NAMED_APK="kp-astro-${TAG}.apk"
             cp "$APK_PATH" "$NAMED_APK"
-            echo "Releasing stable version: $TAG"
-            gh release create "$TAG" "$NAMED_APK" \
-              --title "KP Astro ${TAG}" \
-              --generate-notes
+            gh release create "$TAG" "$NAMED_APK" --title "KP Astro ${TAG}" --generate-notes
           else
-            # Branch-scoped pre-release, kept separate from main's stable tags.
             SLUG=$(printf '%s' "$BRANCH" | tr '/ ' '--')
             LAST_N=$(git tag -l "${NEXT_STABLE}-${SLUG}.*" | awk -F"-${SLUG}." '{print $2}' | grep -E '^[0-9]+$' | sort -n | tail -n 1 || true)
             N=$(( ${LAST_N:-0} + 1 ))
             TAG="${NEXT_STABLE}-${SLUG}.${N}"
             NAMED_APK="kp-astro-${TAG}.apk"
             cp "$APK_PATH" "$NAMED_APK"
-            echo "Releasing pre-release version: $TAG (branch $BRANCH)"
-            gh release create "$TAG" "$NAMED_APK" \
-              --title "KP Astro ${TAG}" \
-              --generate-notes \
-              --prerelease \
-              --latest=false
+            gh release create "$TAG" "$NAMED_APK" --title "KP Astro ${TAG}" --generate-notes --prerelease --latest=false
           fi
+
+  golden:
+    needs: changed-files
+    if: needs.changed-files.outputs.engine == 'true' && (github.ref_name == 'deepseek' || github.ref_name == 'master' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install pyswisseph
+        run: python -m pip install --upgrade pip pyswisseph
+      - name: Assert rules.json copies are identical
+        run: diff -u app/src/main/assets/rules.json tools/reference/rules.json
+      - name: Generate golden.json from the Python reference engine
+        working-directory: tools/reference
+        run: python gen_golden.py > golden.json
+      - name: Validate golden.json
+        run: |
+          python - <<'PY'
+          import json
+          g = json.load(open("tools/reference/golden.json"))
+          print("golden.json OK:", "charts", len(g["charts"]), "life", len(g["life"]), "days", len(g["days"]), "sensitive", len(g.get("sensitive", {})))
+          PY
+      - name: Commit regenerated golden.json
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            main|master) echo "Protected branch ($GITHUB_REF_NAME): skipping commit-back"; exit 0 ;;
+          esac
+          if git diff --quiet -- tools/reference/golden.json; then
+            echo "golden.json unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/reference/golden.json
+          git commit -m "chore: regenerate golden.json [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: golden-json
+          path: tools/reference/golden.json
+
+  host-check:
+    needs: golden
+    if: needs.golden.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: golden-json
+          path: tools/reference
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install Kotlin compiler
+        run: |
+          curl -fsSL -o /tmp/kotlin.zip \
+            https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q /tmp/kotlin.zip -d /opt
+          echo "/opt/kotlinc/bin" >> "$GITHUB_PATH"
+      - name: Run host-check (Kotlin port vs golden.json)
+        run: sh tools/host-check/run.sh

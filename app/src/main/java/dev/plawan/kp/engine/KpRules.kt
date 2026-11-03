@@ -11,6 +11,9 @@ data class Rule(
     val key: String, val cusp: Int, val primary: Int, val support: List<Int>, val denial: List<Int>,
     val status: String, val source: String, val dependsOn: List<String> = emptyList(), val plain: String = "",
     val altSupport: List<Int> = emptyList(), val anySupport: List<Int> = emptyList(),
+    val promiseMode: String = "direct", val starSupport: List<Int> = emptyList(),
+    val subSupport: List<Int> = emptyList(), val starDenial: List<Int> = emptyList(),
+    val subDenialOwners: List<Int> = emptyList(), val subDenialSignifies: List<Int> = emptyList(),
 )
 
 fun parseRules(json: String): LinkedHashMap<String, Rule> {
@@ -24,7 +27,9 @@ fun parseRules(json: String): LinkedHashMap<String, Rule> {
         fun strs(n: String) = (m[n] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
         out[k] = Rule(k, (m["cusp"] as Double).toInt(), (m["primary"] as Double).toInt(), ints("support"), ints("denial"),
             m["status"] as? String ?: "?", m["source"] as? String ?: "", strs("depends_on"), m["plain"] as? String ?: "",
-            intsOpt("alt_support"), intsOpt("any_support"))
+            intsOpt("alt_support"), intsOpt("any_support"), m["promise_mode"] as? String ?: "direct",
+            intsOpt("star_support"), intsOpt("sub_support"), intsOpt("star_denial"),
+            intsOpt("sub_denial_owners"), intsOpt("sub_denial_signifies"))
     }
     return out
 }
@@ -37,9 +42,32 @@ data class Promise(val cuspSubLord: String, val houses: List<Int>, val support: 
 fun promise(ch: Chart, rule: Rule): Promise {
     val csl = ch.cusps[rule.cusp - 1].subLord
     val hs = housesOf(ch, csl)
+    val starHs = housesOf(ch, ch.planets.getValue(csl).starLord)
+    val subHs = housesOf(ch, ch.planets.getValue(csl).subLord)
     val group = (rule.support + rule.anySupport).toSet()
-    val sup = hs.intersect(group).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
-    val verdict = when {
+    val directSup = hs.intersect(group)
+    val starSup = starHs.intersect(rule.starSupport.toSet())
+    val subSup = subHs.intersect(rule.subSupport.toSet())
+    val sup = when (rule.promiseMode) {
+        "star_all" -> starSup
+        "star_sub_all" -> starSup + subSup
+        else -> directSup
+    }.sorted()
+    val den = (hs.intersect(rule.denial.toSet()) + starHs.intersect(rule.starDenial.toSet())).sorted()
+    val requiredPresent = when (rule.promiseMode) {
+        "star_all" -> rule.starSupport.isNotEmpty() && starSup.size == rule.starSupport.distinct().size
+        "star_sub_all" -> rule.starSupport.isNotEmpty() && rule.subSupport.isNotEmpty() &&
+            starSup.size == rule.starSupport.distinct().size && subSup.size == rule.subSupport.distinct().size
+        else -> true
+    }
+    val hardStarDenial = starHs.intersect(rule.starDenial.toSet()).isNotEmpty()
+    val verdict = if (rule.promiseMode != "direct") {
+        when {
+            !requiredPresent || hardStarDenial -> "denied"
+            den.isNotEmpty() -> "mixed"
+            else -> "strong"
+        }
+    } else when {
         rule.anySupport.isNotEmpty() -> when {
             sup.isEmpty() -> "denied"
             den.isEmpty() -> "strong"
@@ -61,8 +89,14 @@ fun lordCheck(ch: Chart, planet: String, rule: Rule): LordCheck {
     val hs = housesOf(ch, planet)
     val group = (rule.support + rule.anySupport).toSet()
     val sup = hs.intersect(group).sorted(); val den = hs.intersect(rule.denial.toSet()).sorted()
-    val sub = ch.planets.getValue(planet).subLord; val shs = housesOf(ch, sub)
-    val permission = shs.intersect(rule.denial.toSet()).size <= shs.intersect(group).size
+    val sub = ch.planets.getValue(planet).subLord
+    val subOwnerHouses = ch.cusps.mapIndexedNotNull { i, cusp -> if (cusp.signLord == sub) i + 1 else null }.toSet()
+    val subSignifications = housesOf(ch, sub)
+    // Reader 4: veto only when this sub-lord owns 1/6/10 AND signifies 12.
+    val marriageVeto = rule.subDenialOwners.isNotEmpty() && rule.subDenialSignifies.isNotEmpty() &&
+        subOwnerHouses.any { it in rule.subDenialOwners } &&
+        subSignifications.any { it in rule.subDenialSignifies }
+    val permission = !marriageVeto
     return LordCheck(planet, sup, den, sub, permission)
 }
 

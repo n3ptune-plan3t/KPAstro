@@ -3,7 +3,7 @@
 Procedure (as taught by KP schools):
  1. PROMISE : cusp sub-lord of the event house signifies the supporting houses, not the denial houses.
  2. TIMING  : running dasha / bhukti / antara lords each signify supporting houses (and their own
-              sub-lords give 'permission'), together covering the primary house.
+              explicit source-specific sub-lord vetoes are applied where encoded), together covering the primary house.
  3. DAILY   : transit Moon star/sub lord read through the NATAL significations.
 The verdict thresholds are transparent heuristics, not canon - tune them in one place (promise()).
 """
@@ -34,9 +34,36 @@ def _group(rule: dict) -> set[int]:
 def promise(ch: kp.Chart, rule: dict) -> dict:
     csl = ch.cusps[rule["cusp"] - 1].sub_lord
     hs = _houses(ch, csl)
-    sup = sorted(hs & _group(rule))
-    den = sorted(hs & set(rule["denial"]))
-    if rule.get("any_support"):
+    star_houses = _houses(ch, ch.planets[csl].star_lord)
+    sub_houses = _houses(ch, ch.planets[csl].sub_lord)
+    mode = rule.get("promise_mode", "direct")
+    direct_sup = hs & _group(rule)
+    star_sup = star_houses & set(rule.get("star_support", []))
+    sub_sup = sub_houses & set(rule.get("sub_support", []))
+    if mode == "star_all":
+        sup = sorted(star_sup)
+    elif mode == "star_sub_all":
+        sup = sorted(star_sup | sub_sup)
+    else:
+        sup = sorted(direct_sup)
+    den = sorted((hs & set(rule["denial"])) | (star_houses & set(rule.get("star_denial", []))))
+    if mode == "star_all":
+        required_present = bool(rule.get("star_support")) and len(star_sup) == len(set(rule["star_support"]))
+    elif mode == "star_sub_all":
+        required_present = (bool(rule.get("star_support")) and bool(rule.get("sub_support"))
+                            and len(star_sup) == len(set(rule["star_support"]))
+                            and len(sub_sup) == len(set(rule["sub_support"])))
+    else:
+        required_present = True
+    hard_star_denial = bool(star_houses & set(rule.get("star_denial", [])))
+    if mode != "direct":
+        if not required_present or hard_star_denial:
+            verdict = "denied"
+        elif den:
+            verdict = "mixed"
+        else:
+            verdict = "strong"
+    elif rule.get("any_support"):
         if not sup:
             verdict = "denied"
         elif not den:
@@ -62,8 +89,13 @@ def lord_check(ch: kp.Chart, planet: str, rule: dict) -> dict:
     group = _group(rule)
     sup, den = sorted(hs & group), sorted(hs & set(rule["denial"]))
     sub = ch.planets[planet].sub_lord
-    shs = _houses(ch, sub)
-    permission = len(shs & set(rule["denial"])) <= len(shs & group)
+    sub_owner_houses = {i + 1 for i, cusp in enumerate(ch.cusps) if cusp.sign_lord == sub}
+    sub_significations = _houses(ch, sub)
+    # Reader 4: veto only when this sub-lord owns 1/6/10 AND signifies 12.
+    marriage_veto = (bool(rule.get("sub_denial_owners")) and bool(rule.get("sub_denial_signifies"))
+                     and bool(sub_owner_houses & set(rule["sub_denial_owners"]))
+                     and bool(sub_significations & set(rule["sub_denial_signifies"])))
+    permission = not marriage_veto
     return {"planet": planet, "support": sup, "denial": den, "sub_lord": sub, "permission": permission}
 
 
