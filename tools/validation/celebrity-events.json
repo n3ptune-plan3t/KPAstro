@@ -5,7 +5,7 @@
     "purpose": "Exploratory retrospective code-path and event-month diagnostic across multiple event keys",
     "role": "development-only; never treat as holdout",
     "source_policy": "Manually selected public Astro-Databank entries. AA birth record rating. Event dates copied from the record; source URLs retained.",
-    "limitations": "Only two people; multiple events per person are correlated. Not representative and cannot establish predictive validity.",
+    "limitations": "Only three people; multiple events per person are correlated. Not representative and cannot establish predictive validity. Keep all cases development-only.",
     "method": "Same frozen Moon-month candidate scoring as the marriage benchmark. No tuning or pass threshold."
   },
   "cases": [
@@ -86,6 +86,84 @@
       "event": "Marriage to George Rodden; biography reports earlier marriage and divorce in mid-1970s",
       "source_url": "https://www.astro.com/astro-databank/Rodden%2C%20Anne",
       "source_note": "Astro-Databank event entry; quoted birth certificate, Rodden AA. Classified as second marriage based on biography."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1981-07-21",
+      "rule": "job",
+      "event": "Joined the U.S. Army",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank biography: birth record in hand, Rodden AA; joined the U.S. Army on 21 July 1981."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1982-07-01",
+      "rule": "college_admission",
+      "event": "Appointed to the U.S. Military Academy at West Point",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank biography: birth record in hand, Rodden AA; appointment date is 1 July 1982."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1986-05-28",
+      "rule": "transfer",
+      "event": "Stationed in Germany for three years",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank biography: birth record in hand, Rodden AA; Germany posting dated 28 May 1986."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1991-06-01",
+      "rule": "property_purchase",
+      "event": "Bought a house in Fort Campbell, Tennessee",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank event list: property purchase dated 1 June 1991."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1992-04-17",
+      "rule": "childbirth",
+      "event": "Birth of son Chris",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank event list: son Chris born 17 April 1992."
+    },
+    {
+      "name": "Jon Rodden",
+      "cohort": "development",
+      "rating": "AA",
+      "birth_datetime": "1960-10-26T04:53:00-07:00",
+      "latitude": 34.089,
+      "longitude": -117.89,
+      "event_date": "1997-08-28",
+      "rule": "promotion",
+      "event": "Promoted to Major",
+      "source_url": "https://www.astro.com/astro-databank/Rodden%2C_Jon",
+      "source_note": "Astro-Databank biography: Major promotion dated 28 August 1997."
     }
   ]
 }

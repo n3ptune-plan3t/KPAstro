@@ -47,9 +47,10 @@ This order follows standard evaluation practice: train/development and validatio
 
 ## Expanded development cases (not independent people)
 
-A second file, `celebrity-events.json`, exercises non-marriage event keys: job, property purchase, childbirth, divorce and second marriage. It currently uses dated public event records for Amy Rodden and Anne Rodden, both with AA birth-record ratings. Multiple events from the same person are correlated and must not be counted as independent chart samples. This is code-path coverage and exploratory diagnosis only; it is not a substitute for a larger, multi-person development cohort or the sealed holdout.
+A second file, `celebrity-events.json`, exercises non-marriage event keys: job, property purchase, childbirth, divorce and second marriage. It currently uses dated public event records for Amy Rodden, Anne Rodden and Jon Rodden, all with AA birth-record ratings. Multiple events from the same person are correlated and must not be counted as independent chart samples. This is code-path coverage and exploratory diagnosis only; it is not a substitute for a larger, multi-person development cohort or the sealed holdout.
 
 Sources:
 - Amy Rodden: https://www.astro.com/astro-databank/Rodden%2C_Amy — birth record AA and dated work, property, childbirth and divorce entries.
 - Anne Rodden: https://www.astro.com/astro-databank/Rodden%2C%20Anne — quoted birth certificate AA and dated childbirth and second-marriage entries.
+- Jon Rodden: https://www.astro.com/astro-databank/Rodden%2C_Jon — birth record AA and dated Army entry, academy appointment, transfer, property purchase, childbirth and promotion.
 - Rodden rating definitions: https://www.astro.com/astro-databank/Help%3ARR
