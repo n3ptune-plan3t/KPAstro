@@ -176,7 +176,7 @@ private fun zoneLabel(p: SensitivePoint) =
 @Composable
 private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: EventTiming?, busy: Boolean) {
     Text("Exact times · Jupiter, Sun, Moon, Lagna", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-    Text("The running dasha–bhukti–antara lords fix the zone (sign, star, sub). Jupiter or another slow lord crossing it gives the month, the Sun the day, the Moon the hour and the Lagna the minute.",
+    Text("The running dasha–bhukti–antara lords define the sensitive zone. The Sun/Moon/Lagna funnel is shown at day/hour/minute scale; period-lord crossings are coarse 6- or 12-hour scans, not month-level event dates.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when {
         e.promise.verdict !in listOf("strong", "promised") ->
@@ -195,7 +195,7 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
             Text("No crossing of the promised zones by Jupiter, the Sun, the Moon or the Lagna inside the scanned dasha periods.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> {
-            val best = bestExact(timing)
+            val best = bestExact(timing, now)
             val shown = timing.exact.take(40)
             shown.forEach { w ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -203,7 +203,7 @@ private fun ExactTiming(e: EventReport, zone: ZoneId, now: Instant, timing: Even
                     Spacer(Modifier.width(6.dp))
                     Text(DAYTIME.format(w.start.atZone(zone)) + " – " + DAYTIME.format(w.end.atZone(zone)),
                         style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    if (w == best) { Spacer(Modifier.width(6.dp)); Pill("best", KpColors.Good, filled = true) }
+                    if (w == best) { Spacer(Modifier.width(6.dp)); Pill("next best", KpColors.Good, filled = true) }
                 }
                 Text(w.chain.joinToString("–") + " · " + zoneLabel(w.point) + " · " + w.precision + " · strength " + w.strength +
                     (if (w.end.isBefore(now)) " · past" else if (w.start.isBefore(now)) " · running now" else ""),

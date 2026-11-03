@@ -50,7 +50,7 @@ private const val SUN_SOURCE =
 private const val ASC_SOURCE =
     "Reader 5 ~l.11170-11180: within the Moon hour the Lagna gives the exact minute."
 private const val LORD_SOURCE =
-    "Reader 5 ~l.10026-10038: the period lords themselves transiting the sensitive point also trigger the result; slow planets give the month."
+    "Engine convention (not a Reader rule): period-lord windows are sampled coarsely at 6-hour (fast) or 12-hour (slow) intervals. Reader 5 ~l.10026-10038 supports period-lord transits, but does not establish a universal slow-planet=month timing rule."
 
 fun sensitivePoints(lords: List<String>, depth: Int = 3): List<SensitivePoint> {
     val use = lords.take(if (depth >= 3) 3 else 2)
@@ -94,7 +94,7 @@ private fun bodyLords(body: String, jd: Double): Lords = when (body) {
     else -> lordsAt(Swe.lon(jd, BODIES.getValue(body)))
 }
 
-private fun scanLords(
+internal fun scanLords(
     body: String, targets: List<SensitivePoint>, from: Instant, to: Instant, stepMin: Int,
     precision: String, rank: Int, chain: List<String>, strength: Int, rule: String, source: String,
     lordsOf: (Instant) -> Lords,
@@ -103,27 +103,64 @@ private fun scanLords(
     require(stepMin > 0) { "stepMin must be positive" }
     val step = stepMin * 60L
     val out = ArrayList<ExactWindow>()
+    var activePoint: SensitivePoint? = null
+    var activeStart: Instant? = null
+
+    fun hitAt(t: Instant): SensitivePoint? {
+        val lords = lordsOf(t)
+        return targets.firstOrNull { matches(it, lords) }
+    }
+    fun closeAt(end: Instant) {
+        val point = activePoint
+        val start = activeStart
+        if (point != null && start != null && end.isAfter(start)) {
+            out.add(ExactWindow(start, end, precision, rank, body, point, chain, rule, strength, source))
+        }
+        activePoint = null
+        activeStart = null
+    }
+    fun boundaryBetween(left: Instant, right: Instant, leftHit: SensitivePoint?): Instant {
+        var lo = left
+        var hi = right
+        while (Duration.between(lo, hi).seconds > 1L) {
+            val mid = lo.plusSeconds(Duration.between(lo, hi).seconds / 2L)
+            if (hitAt(mid) == leftHit) lo = mid else hi = mid
+        }
+        return hi
+    }
+
     var t = from
-    var cur: ExactWindow? = null
     while (t.isBefore(to)) {
-        val l = lordsOf(t)
-        val next = if (t.plusSeconds(step).isAfter(to)) to else t.plusSeconds(step)
-        val hit = targets.firstOrNull { matches(it, l) }
-        if (hit != null) {
-            val c = cur
-            if (c != null && c.point == hit && c.end == t) {
-                cur = c.copy(end = next)
-            } else {
-                c?.let { out.add(it) }
-                cur = ExactWindow(t, next, precision, rank, body, hit, chain, rule, strength, source)
+        val next = minOf(t.plusSeconds(step), to)
+        val leftHit = hitAt(t)
+        val rightHit = hitAt(next)
+
+        if (leftHit == rightHit) {
+            if (leftHit == null) {
+                if (activePoint != null) closeAt(t)
+            } else if (activePoint != leftHit) {
+                closeAt(t)
+                activePoint = leftHit
+                activeStart = t
             }
         } else {
-            cur?.let { out.add(it) }
-            cur = null
+            val boundary = boundaryBetween(t, next, leftHit)
+            if (activePoint != leftHit) {
+                closeAt(t)
+                if (leftHit != null) {
+                    activePoint = leftHit
+                    activeStart = t
+                }
+            }
+            if (leftHit != null) closeAt(boundary)
+            if (rightHit != null && boundary.isBefore(to)) {
+                activePoint = rightHit
+                activeStart = boundary
+            }
         }
-        t = t.plusSeconds(step)
+        t = next
     }
-    cur?.let { out.add(it) }
+    closeAt(to)
     return out
 }
 
@@ -187,7 +224,7 @@ fun exactTimes(
             if (lord == "Sun" || lord == "Moon") continue
             val slow = lord in SLOW_LORDS
             val step = if (slow) cfg.slowStepMin else cfg.fastStepMin
-            val precision = if (slow) "month" else "day"
+            val precision = if (slow) "coarse 12h scan" else "coarse 6h scan"
             val rank = if (slow) 1 else 2
             out.addAll(scanLords(
                 lord, targets, s, e, step, precision, rank, chain, strength, rule.key, source,
@@ -204,10 +241,16 @@ fun exactTimes(
     return EventTiming(rule, pr, broad, exact)
 }
 
-fun bestExact(t: EventTiming): ExactWindow? =
-    t.exact.sortedWith(compareByDescending<ExactWindow> { it.rank }.thenBy { it.start }).firstOrNull()
+fun bestExact(t: EventTiming, near: Instant = Instant.now()): ExactWindow? {
+    val candidates = t.exact.filter { it.end.isAfter(near) }.ifEmpty { t.exact }
+    return candidates.minWithOrNull(
+        compareByDescending<ExactWindow> { it.rank }
+            .thenBy { Math.abs(Duration.between(near, it.start).toSeconds()) }
+            .thenBy { it.start },
+    )
+}
 
+/** Earliest window that is still active or upcoming; precision rank is only a tie-breaker. */
 fun nextExact(t: EventTiming, after: Instant): ExactWindow? =
     t.exact.filter { it.end.isAfter(after) }
-        .sortedWith(compareByDescending<ExactWindow> { it.rank }.thenBy { it.start })
-        .firstOrNull()
+        .minWithOrNull(compareBy<ExactWindow> { it.start }.thenByDescending { it.rank })

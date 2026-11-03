@@ -67,5 +67,38 @@ fun main(args: Array<String>) {
     val tol = birthTimeTolerance(inst(u["dt"]), d(u["lat"]), d(u["lon"]), 30)
     for ((n, tv) in m(g["birth_tol"])) { val t = m(tv); val q = tol.getValue(n)
         ok(q.sub == t["sub"] && q.before == (t["before"] as Double?)?.toInt() && q.after == (t["after"] as Double?)?.toInt(), "tol $n ${q} vs $t") }
+    // Transit-zone scanner must refine a sampled exit boundary to within one second.
+    val scanStart = Instant.parse("2026-01-01T00:00:00Z")
+    val scanEnd = scanStart.plusSeconds(600)
+    val target = SensitivePoint("*", "Sun", "Moon")
+    val synthetic = scanLords(
+        "Moon", listOf(target), scanStart, scanEnd, 10, "hour", 3,
+        listOf("Sun", "Moon"), 0, "scanner_test", "synthetic",
+    ) { at ->
+        if (at.isBefore(scanStart.plusSeconds(300))) Lords("Aries", "Sun", "Moon", "Mars")
+        else Lords("Aries", "Sun", "Mars", "Mars")
+    }
+    ok(synthetic.size == 1 && synthetic[0].start == scanStart &&
+        Math.abs(Duration.between(synthetic[0].end, scanStart.plusSeconds(300)).seconds) <= 1,
+        "scanLords refines exit boundary")
+    val syntheticEntry = scanLords(
+        "Moon", listOf(target), scanStart, scanEnd, 10, "hour", 3,
+        listOf("Sun", "Moon"), 0, "scanner_test", "synthetic",
+    ) { at ->
+        if (at.isBefore(scanStart.plusSeconds(300))) Lords("Aries", "Sun", "Mars", "Mars")
+        else Lords("Aries", "Sun", "Moon", "Mars")
+    }
+    ok(syntheticEntry.size == 1 &&
+        Math.abs(Duration.between(syntheticEntry[0].start, scanStart.plusSeconds(300)).seconds) <= 1 &&
+        syntheticEntry[0].end == scanEnd, "scanLords refines entry boundary")
+
+    val old = ExactWindow(scanStart.minusSeconds(7200), scanStart.minusSeconds(7100), "minute", 4,
+        "Asc", target, listOf("Sun", "Moon"), "test", 10, "test")
+    val upcoming = ExactWindow(scanStart.plusSeconds(3600), scanStart.plusSeconds(3700), "hour", 3,
+        "Moon", target, listOf("Sun", "Moon"), "test", 8, "test")
+    val event = EventTiming(rules.getValue("job"), Promise("Sun", emptyList(), emptyList(), emptyList(), "strong"),
+        emptyList(), listOf(old, upcoming))
+    ok(bestExact(event, scanStart) == upcoming, "bestExact prefers an upcoming window")
+    ok(nextExact(event, scanStart) == upcoming, "nextExact chooses earliest upcoming window")
     println("checks=$checks fails=$fails"); if (fails > 0) System.exit(1)
 }

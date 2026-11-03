@@ -5,7 +5,7 @@ points are the sign/star/sub positions governed by A, B and C. A transit of the 
 lords, the luminaries or the Lagna over one of those points triggers the event.
 Reader 5 ~l.2626: the two-level fallback pins only the star of one lord + sub of the other.
 Reader 5 ~l.11170-11180 / ~l.2535-2538: the Moon gives the hour, the Sun the day, the
-Lagna the minute; slow planets give the month.
+Lagna the minute. Slow/fast period-lord sampling intervals below are engine conventions.
 Reader 3 ~l.19160-19175: strength order for picking the best window is A > B > C > D
 (planet in the star of the occupant > occupant > star of the house lord > house lord).
 """
@@ -41,8 +41,9 @@ MOON_SOURCE = (
 SUN_SOURCE = "Reader 5 ~l.2535-2538: the Sun transits the zone on the day, fixing the date."
 ASC_SOURCE = "Reader 5 ~l.11170-11180: within the Moon hour the Lagna gives the exact minute."
 LORD_SOURCE = (
-    "Reader 5 ~l.10026-10038: the period lords themselves transiting the sensitive point "
-    "also trigger the result; slow planets give the month."
+    "Engine convention (not a Reader rule): period-lord windows are sampled coarsely at "
+    "6-hour (fast) or 12-hour (slow) intervals. Reader 5 ~l.10026-10038 supports period-lord "
+    "transits, but does not establish a universal slow-planet=month timing rule."
 )
 
 
@@ -112,32 +113,65 @@ def asc_lords(t: datetime, lat: float, lon: float):
 # ---------------------------------------------------------------- scanning
 def _scan_lords(body, targets, start, end, step_min, precision, rank, chain, strength,
                 rule_key, source, lords_of):
+    """Sample for zone membership, then bisect detected edges to one-second resolution.
+
+    The configured step must still be shorter than the narrowest zone crossing; bisection
+    improves edge placement but cannot recover a complete crossing skipped between samples.
+    """
     if end <= start or not targets:
         return []
     if step_min <= 0:
         raise ValueError("step_min must be positive")
     step = timedelta(minutes=step_min)
-    out, cur, t = [], None, start
-    while t < end:
+
+    def hit_at(t):
         lords = lords_of(t)
-        nxt = min(t + step, end)
-        hit = next((pt for pt in targets if _matches(pt, lords)), None)
-        if hit is not None:
-            if cur is not None and cur["point"] == hit and cur["end"] == t:
-                cur["end"] = nxt
+        return next((pt for pt in targets if _matches(pt, lords)), None)
+
+    def boundary_between(left, right, left_hit):
+        lo, hi = left, right
+        while (hi - lo).total_seconds() > 1:
+            mid = lo + timedelta(seconds=int((hi - lo).total_seconds() // 2))
+            if hit_at(mid) == left_hit:
+                lo = mid
             else:
-                if cur is not None:
-                    out.append(cur)
-                cur = {"start": t, "end": nxt, "precision": precision, "rank": rank,
-                       "body": body, "point": hit, "chain": tuple(chain),
-                       "rule": rule_key, "strength": strength, "source": source}
+                hi = mid
+        return hi
+
+    out = []
+    active_point = active_start = None
+
+    def close_at(at):
+        nonlocal active_point, active_start
+        if active_point is not None and active_start is not None and at > active_start:
+            out.append({"start": active_start, "end": at, "precision": precision, "rank": rank,
+                        "body": body, "point": active_point, "chain": tuple(chain),
+                        "rule": rule_key, "strength": strength, "source": source})
+        active_point = active_start = None
+
+    t = start
+    while t < end:
+        nxt = min(t + step, end)
+        left_hit, right_hit = hit_at(t), hit_at(nxt)
+        if left_hit == right_hit:
+            if left_hit is None:
+                if active_point is not None:
+                    close_at(t)
+            elif active_point != left_hit:
+                close_at(t)
+                active_point, active_start = left_hit, t
         else:
-            if cur is not None:
-                out.append(cur)
-            cur = None
-        t += step
-    if cur is not None:
-        out.append(cur)
+            boundary = boundary_between(t, nxt, left_hit)
+            if active_point != left_hit:
+                close_at(t)
+                if left_hit is not None:
+                    active_point, active_start = left_hit, t
+            if left_hit is not None:
+                close_at(boundary)
+            if right_hit is not None and boundary < end:
+                active_point, active_start = right_hit, boundary
+        t = nxt
+    close_at(end)
     return out
 
 
@@ -201,7 +235,7 @@ def exact_times(ch: kp.Chart, rule: dict, start: datetime, end: datetime,
                 continue
             slow = lord in SLOW_LORDS
             step = cfg["slow_step_min"] if slow else cfg["fast_step_min"]
-            precision = "month" if slow else "day"
+            precision = "coarse 12h scan" if slow else "coarse 6h scan"
             rank = 1 if slow else 2
             out.extend(_scan_lords(lord, targets, s, e, step, precision, rank, chain,
                                    strength, rule["key"], source,
@@ -222,13 +256,18 @@ def exact_times(ch: kp.Chart, rule: dict, start: datetime, end: datetime,
     return {"rule": rule["key"], "promise": pr, "broad": broad, "exact": exact}
 
 
-def best_exact(result: dict):
-    return sorted(result["exact"], key=lambda w: (-w["rank"], w["start"]))[0] if result["exact"] else None
+def best_exact(result: dict, near: datetime | None = None):
+    if not result["exact"]:
+        return None
+    near = (near or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    candidates = [w for w in result["exact"] if w["end"] > near] or result["exact"]
+    return min(candidates, key=lambda w: (-w["rank"], abs((w["start"] - near).total_seconds()), w["start"]))
 
 
 def next_exact(result: dict, after: datetime):
+    after = after.astimezone(timezone.utc)
     fut = [w for w in result["exact"] if w["end"] > after]
-    return sorted(fut, key=lambda w: (-w["rank"], w["start"]))[0] if fut else None
+    return min(fut, key=lambda w: (w["start"], -w["rank"])) if fut else None
 
 
 if __name__ == "__main__":

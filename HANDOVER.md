@@ -322,3 +322,12 @@ No build and no install were run. Work is on the `deepseek` branch.
 - `golden.json` remains stale and must be regenerated; `pyswisseph` is missing locally
   (`ModuleNotFoundError: No module named 'swisseph'`), so the reference generator cannot run
   here.
+
+
+### Session 11 (2026-11-03): timing boundary accuracy and ranking
+
+- KpTiming.kt and tools/reference/kp_timing.py: sampled transit-zone entry/exit edges are now bisected to one-second resolution after a detected change. This reduces boundary error without changing the selected KP sensitive zones. The configured sampling interval must still be short enough not to skip a complete zone crossing; bisection cannot recover a crossing missed between samples.
+- Period-lord scans are now labelled as coarse 6-hour / 12-hour sampling conventions. The previous statement that slow planets universally give the month was incorrectly attributed to Reader 5 ~l.10026-10038; the source supports period-lord transits but not that month-level rule.
+- bestExact now prefers upcoming windows before past windows; nextExact selects the earliest active/upcoming window, using precision only as a tie-breaker.
+- LifeScreen explains the coarse scan limitation. GoldenCheck adds synthetic entry/exit-boundary and upcoming-window selection checks.
+- No event rule, KP promise condition, natal chart calculation or daily score weight changed. Existing golden.json values should remain unchanged, but the host check must be run by the owner. No build or compile was run here.
