@@ -77,3 +77,5 @@ The former dasha-chain support-count heuristic has been removed. Every lord in a
 4. Freeze the method; retain current celebrity sample as development data only, then build a separate sealed holdout from different people/events.
 5. Evaluate the holdout once using preregistered scoring, candidate density and baseline comparisons.
 
+Audit and evaluation references: `tools/validation/RULE_AUDIT.md`, `tools/validation/HOLDOUT_PROTOCOL.md` and `tools/validation/README.md`.
+
