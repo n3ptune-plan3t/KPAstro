@@ -46,4 +46,4 @@ The rule catalogue currently contains 56 events. Every astrology rule must remai
 
 ## Retrospective timing validation
 
-The Kotlin host-check runs a small, manually curated celebrity-marriage benchmark from public Astro-Databank records. It retains source URLs and Rodden ratings, reports whether the actual event month appears among Moon-triggered candidates, and reports candidate-month density as a rough random-month baseline. This is exploratory retrospective analysis, not proof of predictive validity; the benchmark is not used to tune the rules. See `tools/validation/README.md`.
+The Kotlin host-check runs a small, manually curated celebrity-marriage benchmark from public Astro-Databank records. It retains source URLs and Rodden ratings, reports whether the actual event month appears among Sun-triggered candidates, and reports candidate-month density as a rough random-month baseline. This is exploratory retrospective analysis, not proof of predictive validity; the benchmark is not used to tune the rules. See `tools/validation/README.md`.
