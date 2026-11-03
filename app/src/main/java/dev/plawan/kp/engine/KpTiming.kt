@@ -122,8 +122,8 @@ internal fun scanLords(
     fun boundaryBetween(left: Instant, right: Instant, leftHit: SensitivePoint?): Instant {
         var lo = left
         var hi = right
-        while (Duration.between(lo, hi).seconds > 1L) {
-            val mid = lo.plusSeconds(Duration.between(lo, hi).seconds / 2L)
+        while (Duration.between(lo, hi).toMillis() > 1000L) {
+            val mid = lo.plusMillis(Duration.between(lo, hi).toMillis() / 2L)
             if (hitAt(mid) == leftHit) lo = mid else hi = mid
         }
         return hi
