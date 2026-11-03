@@ -8,7 +8,7 @@ import java.time.ZoneOffset
 
 // Month-level KP timing. A qualifying Dasa-Bhukti-Anthara defines the active period.
 // Sun crossings of its sensitive sign/star/sub zones nominate calendar months;
-// Sun, Jupiter provides slow/broad corroboration; Moon and the running period lords provide finer confirmation.
+// Jupiter provides slow/broad corroboration; Moon and the running period lords provide finer confirmation.
 // Transit is never used without the natal promise and active period.
 
 data class SensitivePoint(val sign: String, val star: String, val sub: String)
